@@ -1,8 +1,11 @@
+import { DataState } from "@/components/DataState";
 import { EventDirectory } from "@/components/EventDirectory";
 import { PageHero } from "@/components/PageHero";
-import { events } from "@/lib/events";
+import { getUpcomingEvents } from "@/lib/supabase/queries";
 
-export default function EventsPage() {
+export default async function EventsPage() {
+  const { data: events, error } = await getUpcomingEvents();
+
   return (
     <>
       <PageHero
@@ -12,9 +15,9 @@ export default function EventsPage() {
             Browse <span className="accent">DFW events.</span>
           </>
         }
-        copy="Filter placeholder marketplace inventory by date, city, and category."
+        copy="Filter seeded marketplace inventory by date, city, and category."
       />
-      <EventDirectory events={events} />
+      {error ? <DataState title="Supabase setup needed" message={error} /> : <EventDirectory events={events} />}
     </>
   );
 }

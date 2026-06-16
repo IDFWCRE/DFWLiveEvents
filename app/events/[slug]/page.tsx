@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatEventDate, getEventBySlug, events } from "@/lib/events";
-
-export function generateStaticParams() {
-  return events.map((event) => ({ slug: event.slug }));
-}
+import { DataState } from "@/components/DataState";
+import { formatEventDate } from "@/lib/events";
+import { getEventBySlug } from "@/lib/supabase/queries";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const event = getEventBySlug(slug);
+  const { data: event, error } = await getEventBySlug(slug);
+
+  if (error) {
+    return <DataState title="Supabase setup needed" message={error} />;
+  }
 
   if (!event) {
     notFound();

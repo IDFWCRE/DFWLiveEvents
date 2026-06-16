@@ -1,8 +1,15 @@
+import { DataState } from "@/components/DataState";
 import { PageHero } from "@/components/PageHero";
 import { VenueCard } from "@/components/VenueCard";
-import { venues } from "@/lib/events";
+import { getUpcomingEvents, getVenues } from "@/lib/supabase/queries";
 
-export default function VenuesPage() {
+export default async function VenuesPage() {
+  const [{ data: venues, error: venuesError }, { data: events, error: eventsError }] = await Promise.all([
+    getVenues(),
+    getUpcomingEvents()
+  ]);
+  const error = venuesError || eventsError;
+
   return (
     <>
       <PageHero
@@ -14,11 +21,19 @@ export default function VenuesPage() {
         }
         copy="A starter venue directory for the future marketplace experience."
       />
-      <div className="venue-grid">
-        {venues.map((venue) => (
-          <VenueCard venue={venue} key={venue.id} />
-        ))}
-      </div>
+      {error ? (
+        <DataState title="Supabase setup needed" message={error} />
+      ) : (
+        <div className="venue-grid">
+          {venues.map((venue) => (
+            <VenueCard
+              venue={venue}
+              eventCount={events.filter((event) => event.venue.slug === venue.slug).length}
+              key={venue.id}
+            />
+          ))}
+        </div>
+      )}
     </>
   );
 }

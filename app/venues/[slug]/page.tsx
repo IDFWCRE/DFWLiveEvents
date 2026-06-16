@@ -1,20 +1,26 @@
 import { notFound } from "next/navigation";
+import { DataState } from "@/components/DataState";
 import { EventDirectory } from "@/components/EventDirectory";
-import { formatEventDate, getEventsByVenue, getVenueBySlug, venues } from "@/lib/events";
-
-export function generateStaticParams() {
-  return venues.map((venue) => ({ slug: venue.slug }));
-}
+import { formatEventDate } from "@/lib/events";
+import { getUpcomingEvents, getVenueBySlug } from "@/lib/supabase/queries";
 
 export default async function VenueDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const venue = getVenueBySlug(slug);
+  const [{ data: venue, error: venueError }, { data: events, error: eventsError }] = await Promise.all([
+    getVenueBySlug(slug),
+    getUpcomingEvents()
+  ]);
+  const error = venueError || eventsError;
+
+  if (error) {
+    return <DataState title="Supabase setup needed" message={error} />;
+  }
 
   if (!venue) {
     notFound();
   }
 
-  const venueEvents = getEventsByVenue(venue.slug);
+  const venueEvents = events.filter((event) => event.venue.slug === venue.slug);
   const nextEvent = venueEvents[0];
 
   return (

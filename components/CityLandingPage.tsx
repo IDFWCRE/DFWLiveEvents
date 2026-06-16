@@ -2,21 +2,21 @@ import { notFound } from "next/navigation";
 import { EventDirectory } from "@/components/EventDirectory";
 import { PageHero } from "@/components/PageHero";
 import { getCityBySlug } from "@/lib/cities";
-import { events, getEventsByCity } from "@/lib/events";
+import { getUpcomingEvents } from "@/lib/supabase/queries";
 import type { CitySlug } from "@/types/event";
+import { DataState } from "./DataState";
 
 interface CityLandingPageProps {
   citySlug: CitySlug;
 }
 
-export function CityLandingPage({ citySlug }: CityLandingPageProps) {
+export async function CityLandingPage({ citySlug }: CityLandingPageProps) {
   const city = getCityBySlug(citySlug);
   if (!city) {
     notFound();
   }
 
-  const cityEvents = getEventsByCity(citySlug);
-  const directoryEvents = cityEvents.length ? events : [];
+  const { data: events, error } = await getUpcomingEvents();
 
   return (
     <>
@@ -29,7 +29,11 @@ export function CityLandingPage({ citySlug }: CityLandingPageProps) {
         }
         copy={city.description}
       />
-      <EventDirectory events={directoryEvents} initialCity={city.name} title={`${city.name} Events`} />
+      {error ? (
+        <DataState title="Supabase setup needed" message={error} />
+      ) : (
+        <EventDirectory events={events} initialCity={city.name} title={`${city.name} Events`} />
+      )}
     </>
   );
 }

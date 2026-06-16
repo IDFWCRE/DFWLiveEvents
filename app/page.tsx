@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { DataState } from "@/components/DataState";
 import { EventDirectory } from "@/components/EventDirectory";
 import { PageHero } from "@/components/PageHero";
 import { cities } from "@/lib/cities";
-import { events } from "@/lib/events";
+import { getFeaturedEvents } from "@/lib/supabase/queries";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { data: events, error } = await getFeaturedEvents();
+
   return (
     <>
       <PageHero
@@ -16,7 +19,7 @@ export default function HomePage() {
         }
         copy="Discover concerts, comedy nights, venues, and city guides across Dallas-Fort Worth."
       />
-      <EventDirectory events={events} title="Featured Events" />
+      {error ? <DataState title="Supabase setup needed" message={error} /> : <EventDirectory events={events} title="Featured Events" />}
 
       <section className="stack" style={{ marginTop: 48 }}>
         <h2 className="section-title">Explore By City</h2>

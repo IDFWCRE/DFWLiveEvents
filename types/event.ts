@@ -16,8 +16,10 @@ export interface Venue {
   name: string;
   slug: string;
   city: string;
+  state: string;
   address: string;
-  capacity?: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface Event {
@@ -32,4 +34,5 @@ export interface Event {
   category: EventCategory;
   description: string;
   ticketUrl: string;
+  status: "draft" | "published" | "cancelled";
 }
