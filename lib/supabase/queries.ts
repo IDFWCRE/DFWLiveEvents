@@ -18,6 +18,7 @@ type VenueRow = {
 };
 
 type EventOfferRow = {
+  id: string;
   affiliate_url: string | null;
   source_listing_url: string | null;
   available: boolean;
@@ -97,6 +98,7 @@ function mapEvent(row: EventRow): Event | null {
     category: displayCategory(row.category),
     description: row.description || "",
     ticketUrl: ticketOffer?.affiliate_url || ticketOffer?.source_listing_url || "#",
+    offerId: ticketOffer?.id,
     status: row.status
   };
 }
@@ -122,6 +124,7 @@ const eventSelect = `
     longitude
   ),
   event_offers (
+    id,
     affiliate_url,
     source_listing_url,
     available

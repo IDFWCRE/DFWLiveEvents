@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "import:ticketmaster": "tsx scripts/import-ticketmaster.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -17,5 +18,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.4"
   }
 }

@@ -1,0 +1,235 @@
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { fetchTicketmasterEvents } from "./client";
+import { normalizeTicketmasterEvent, type NormalizedTicketmasterEvent } from "./normalize";
+
+export type TicketmasterImportSummary = {
+  fetchedCount: number;
+  insertedCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  errors: string[];
+};
+
+export type TicketmasterImportOptions = {
+  log?: (message: string) => void;
+};
+
+type SupabaseAdmin = ReturnType<typeof createSupabaseAdminClient>;
+
+async function ensureTicketmasterSource(supabase: SupabaseAdmin) {
+  const { error } = await supabase.from("ticket_sources").upsert(
+    {
+      slug: "ticketmaster",
+      name: "Ticketmaster",
+      website_url: "https://www.ticketmaster.com",
+      affiliate_base_url: null,
+      active: true
+    },
+    { onConflict: "slug" }
+  );
+
+  if (error) {
+    throw new Error(`Unable to upsert Ticketmaster source: ${error.message}`);
+  }
+}
+
+async function upsertVenue(supabase: SupabaseAdmin, event: NormalizedTicketmasterEvent) {
+  const { data, error } = await supabase
+    .from("venues")
+    .upsert(
+      {
+        slug: event.venue.slug,
+        name: event.venue.name,
+        city: event.venue.city,
+        state: event.venue.state,
+        address: event.venue.address,
+        latitude: event.venue.latitude,
+        longitude: event.venue.longitude
+      },
+      { onConflict: "slug" }
+    )
+    .select("id")
+    .single();
+
+  if (error) {
+    throw new Error(`Unable to upsert venue "${event.venue.name}": ${error.message}`);
+  }
+
+  return String(data.id);
+}
+
+async function upsertPerformers(supabase: SupabaseAdmin, event: NormalizedTicketmasterEvent) {
+  const performerIds: string[] = [];
+
+  for (const performer of event.performers) {
+    const { data, error } = await supabase
+      .from("performers")
+      .upsert(
+        {
+          slug: performer.slug,
+          name: performer.name,
+          category: performer.category,
+          image_url: performer.imageUrl,
+          website_url: performer.websiteUrl
+        },
+        { onConflict: "slug" }
+      )
+      .select("id")
+      .single();
+
+    if (error) {
+      throw new Error(`Unable to upsert performer "${performer.name}": ${error.message}`);
+    }
+
+    performerIds.push(String(data.id));
+  }
+
+  return performerIds;
+}
+
+async function getExistingTicketmasterIds(supabase: SupabaseAdmin, externalEventIds: string[]) {
+  if (!externalEventIds.length) return new Set<string>();
+
+  const { data, error } = await supabase
+    .from("events")
+    .select("external_event_id")
+    .eq("external_source", "Ticketmaster")
+    .in("external_event_id", externalEventIds);
+
+  if (error) {
+    throw new Error(`Unable to check existing Ticketmaster events: ${error.message}`);
+  }
+
+  return new Set(((data || []) as Array<{ external_event_id: string | null }>).map((row) => row.external_event_id).filter(Boolean));
+}
+
+async function upsertEvent(supabase: SupabaseAdmin, event: NormalizedTicketmasterEvent, venueId: string) {
+  const { data, error } = await supabase
+    .from("events")
+    .upsert(
+      {
+        slug: event.slug,
+        title: event.title,
+        description: event.description,
+        category: event.category,
+        event_date: event.eventDate,
+        event_time: event.eventTime,
+        image_url: event.imageUrl,
+        status: "published",
+        venue_id: venueId,
+        source_type: "api",
+        external_source: "Ticketmaster",
+        external_event_id: event.externalEventId
+      },
+      { onConflict: "external_source,external_event_id" }
+    )
+    .select("id")
+    .single();
+
+  if (error) {
+    throw new Error(`Unable to upsert event "${event.title}": ${error.message}`);
+  }
+
+  return String(data.id);
+}
+
+async function upsertEventPerformers(supabase: SupabaseAdmin, eventId: string, performerIds: string[]) {
+  if (!performerIds.length) return;
+
+  const rows = performerIds.map((performerId, index) => ({
+    event_id: eventId,
+    performer_id: performerId,
+    billing_order: index + 1
+  }));
+
+  const { error } = await supabase.from("event_performers").upsert(rows, {
+    onConflict: "event_id,performer_id"
+  });
+
+  if (error) {
+    throw new Error(`Unable to upsert event performers: ${error.message}`);
+  }
+}
+
+async function upsertTicketmasterOffer(supabase: SupabaseAdmin, eventId: string, event: NormalizedTicketmasterEvent) {
+  const { error } = await supabase.from("event_offers").upsert(
+    {
+      event_id: eventId,
+      source_name: event.sourceName,
+      source_listing_url: event.sourceUrl,
+      affiliate_url: event.sourceUrl,
+      currency: "USD",
+      available: true
+    },
+    { onConflict: "event_id,source_name" }
+  );
+
+  if (error) {
+    throw new Error(`Unable to upsert Ticketmaster offer for "${event.title}": ${error.message}`);
+  }
+}
+
+function dedupeNormalizedEvents(events: NormalizedTicketmasterEvent[]) {
+  return [...new Map(events.map((event) => [event.externalEventId, event])).values()];
+}
+
+export async function importTicketmasterEvents(options: TicketmasterImportOptions = {}): Promise<TicketmasterImportSummary> {
+  options.log?.("[ticketmaster] Import started");
+  const fetched = await fetchTicketmasterEvents({ log: options.log });
+  const errors = [...fetched.errors];
+  const normalized = fetched.events.map(normalizeTicketmasterEvent);
+  const skippedCount = normalized.filter((event) => !event).length;
+  const normalizedEvents = dedupeNormalizedEvents(
+    normalized.filter((event): event is NormalizedTicketmasterEvent => Boolean(event))
+  );
+
+  const supabase = createSupabaseAdminClient();
+
+  await ensureTicketmasterSource(supabase);
+
+  const existingIds = await getExistingTicketmasterIds(
+    supabase,
+    normalizedEvents.map((event) => event.externalEventId)
+  );
+
+  let insertedCount = 0;
+  let updatedCount = 0;
+
+  options.log?.(`[ticketmaster] Upserting ${normalizedEvents.length} normalized event(s)`);
+
+  for (const event of normalizedEvents) {
+    try {
+      options.log?.(`[ticketmaster] Upserting event: ${event.title}`);
+      const wasExisting = existingIds.has(event.externalEventId);
+      const venueId = await upsertVenue(supabase, event);
+      const performerIds = await upsertPerformers(supabase, event);
+      const eventId = await upsertEvent(supabase, event, venueId);
+      await upsertEventPerformers(supabase, eventId, performerIds);
+      await upsertTicketmasterOffer(supabase, eventId, event);
+
+      if (wasExisting) {
+        updatedCount += 1;
+      } else {
+        insertedCount += 1;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(message);
+      options.log?.(`[ticketmaster] Upsert error for "${event.title}": ${message}`);
+    }
+  }
+
+  const summary = {
+    fetchedCount: fetched.fetchedCount,
+    insertedCount,
+    updatedCount,
+    skippedCount,
+    errors
+  };
+
+  options.log?.(
+    `[ticketmaster] Import complete: fetched=${summary.fetchedCount}, inserted=${summary.insertedCount}, updated=${summary.updatedCount}, skipped=${summary.skippedCount}, errors=${summary.errors.length}`
+  );
+
+  return summary;
+}

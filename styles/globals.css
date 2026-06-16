@@ -491,6 +491,40 @@ h1 {
   color: var(--muted);
 }
 
+.env-table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.env-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.env-row:last-child {
+  border-bottom: 0;
+}
+
+.env-row strong {
+  color: var(--orange-light);
+}
+
+.code-block {
+  overflow-x: auto;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+}
+
 footer {
   border-top: 1px solid var(--border);
   color: var(--muted);

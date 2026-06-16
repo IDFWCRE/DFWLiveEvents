@@ -7,11 +7,14 @@ Dallas-Fort Worth live events marketplace foundation built with Next.js App Rout
 Create `.env.local` for local development:
 
 ```bash
+TICKETMASTER_API_KEY=your-ticketmaster-discovery-api-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+ADMIN_IMPORT_TOKEN=choose-a-long-random-token
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-Only use the public anon key in the app. Do not expose a Supabase service role key in frontend code.
+`NEXT_PUBLIC_*` values are client-safe. `TICKETMASTER_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `ADMIN_IMPORT_TOKEN` are server-only and must not be exposed in client components.
 
 `.env.local` is ignored by git through `.env*` in `.gitignore`.
 
@@ -30,13 +33,19 @@ Production build check:
 npm run build
 ```
 
+Run the Ticketmaster importer locally:
+
+```bash
+npm run import:ticketmaster
+```
+
 ## Supabase Setup
 
 1. Create a Supabase project.
 2. Open the Supabase SQL Editor.
 3. Run `supabase/schema.sql`.
 4. Run `supabase/seed.sql`.
-5. Copy the project URL and anon key into `.env.local`.
+5. Copy the project URL, anon key, and service role key into `.env.local`.
 
 The schema includes:
 
@@ -51,22 +60,114 @@ The schema includes:
 
 RLS is enabled. Public anon users can read published events, venues, performers, active ticket sources, and available event offers. Public users can insert affiliate clicks for future tracking. Admin write policies are intentionally left as commented placeholders.
 
+## Ticketmaster Import
+
+Phase 1C includes a server-side Ticketmaster Discovery API importer. It fetches upcoming Music and Comedy events for:
+
+- Dallas
+- Fort Worth
+- Arlington
+- Denton
+- Irving
+- Grand Prairie
+- Plano
+- Frisco
+- McKinney
+
+Imported events are normalized and cached in Supabase. Existing seed events continue to work.
+
+The importer upserts:
+
+- venues by slug
+- performers by slug
+- events by `external_source + external_event_id`
+- event performer joins
+- `Ticketmaster` ticket source
+- event offers with Ticketmaster listing URLs
+
+### Local Import
+
+Make sure `.env.local` contains:
+
+```bash
+TICKETMASTER_API_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_SUPABASE_URL=
+```
+
+Then run:
+
+```bash
+npm run import:ticketmaster
+```
+
+The script prints a JSON summary with fetched, inserted, updated, skipped, and error counts.
+
+### Protected API Import
+
+The protected route is:
+
+```text
+POST /api/admin/import/ticketmaster
+```
+
+Required header:
+
+```text
+x-admin-import-token: your-admin-import-token
+```
+
+Example:
+
+```bash
+curl -X POST https://your-vercel-domain.vercel.app/api/admin/import/ticketmaster \
+  -H "x-admin-import-token: $ADMIN_IMPORT_TOKEN"
+```
+
+The route returns:
+
+```json
+{
+  "fetchedCount": 0,
+  "insertedCount": 0,
+  "updatedCount": 0,
+  "skippedCount": 0,
+  "errors": []
+}
+```
+
+Ticketmaster API keys and Supabase service role keys are used only server-side.
+
+## Outbound Ticket Tracking
+
+Buy Tickets links point to:
+
+```text
+/go/[offerId]
+```
+
+That route records an `affiliate_clicks` row with the offer id, event id, timestamp, referrer, and user agent, then redirects to `affiliate_url` or `source_listing_url`.
+
 ## Deploy To Vercel
 
 1. Push the repo to GitHub.
 2. Import the project in Vercel.
 3. Add these environment variables in Vercel Project Settings:
+   - `TICKETMASTER_API_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `ADMIN_IMPORT_TOKEN`
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 4. Redeploy after adding environment variables.
+5. Run the protected import route manually or from a trusted scheduler.
 
 ## Phase Notes
 
-Phase 1B uses Supabase seed data only.
+Phase 1C uses Supabase seed data plus cached Ticketmaster imports.
 
 Not included yet:
 
-- Ticketmaster API
 - Payments
 - User resale
 - Service role access in frontend code
+- Website scraping

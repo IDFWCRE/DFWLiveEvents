@@ -137,6 +137,14 @@ create index if not exists idx_venues_city on venues(city);
 create index if not exists idx_event_offers_event_available on event_offers(event_id, available);
 create index if not exists idx_affiliate_clicks_clicked_at on affiliate_clicks(clicked_at);
 
+do $$
+begin
+  alter table event_offers
+  add constraint unique_event_offer_source unique (event_id, source_name);
+exception
+  when duplicate_object then null;
+end $$;
+
 drop trigger if exists set_venues_updated_at on venues;
 create trigger set_venues_updated_at before update on venues
 for each row execute function set_updated_at();

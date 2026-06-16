@@ -34,5 +34,6 @@ export interface Event {
   category: EventCategory;
   description: string;
   ticketUrl: string;
+  offerId?: string;
   status: "draft" | "published" | "cancelled";
 }

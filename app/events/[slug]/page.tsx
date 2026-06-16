@@ -16,6 +16,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
     notFound();
   }
 
+  const ticketHref = event.offerId ? `/go/${event.offerId}` : event.ticketUrl;
+
   return (
     <article className="detail-layout">
       <div className="stack">
@@ -41,7 +43,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           <br />
           <span className="muted">{event.venue.address}</span>
         </p>
-        <a className="primary-button" href={event.ticketUrl} target="_blank" rel="noopener noreferrer">
+        <a className="primary-button" href={ticketHref} target={event.offerId ? undefined : "_blank"} rel="noopener noreferrer">
           Buy Tickets
         </a>
       </aside>

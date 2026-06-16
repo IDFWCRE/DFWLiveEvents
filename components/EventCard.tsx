@@ -7,6 +7,7 @@ interface EventCardProps {
 }
 
 export function EventCard({ event }: EventCardProps) {
+  const ticketHref = event.offerId ? `/go/${event.offerId}` : event.ticketUrl;
   const date = new Date(event.dateTime);
   const month = new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -40,7 +41,7 @@ export function EventCard({ event }: EventCardProps) {
             {event.venue.name} · {event.city}
           </span>
         </div>
-        <a className="ticket-button" href={event.ticketUrl} target="_blank" rel="noopener noreferrer">
+        <a className="ticket-button" href={ticketHref} target={event.offerId ? undefined : "_blank"} rel="noopener noreferrer">
           <span>Buy Tickets</span>
           <span aria-hidden="true">↗</span>
         </a>
