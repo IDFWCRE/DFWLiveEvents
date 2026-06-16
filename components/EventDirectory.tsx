@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { cities } from "@/lib/cities";
 import { categories } from "@/lib/events";
@@ -8,12 +9,24 @@ import { EventCard } from "./EventCard";
 
 type DateFilter = "today" | "week" | "month" | "all";
 type CategoryFilter = EventCategory | "All";
+type Mode = "filter" | "link";
 
 interface EventDirectoryProps {
   events: Event[];
   initialCity?: string;
+  initialCategory?: CategoryFilter;
+  initialDate?: DateFilter;
+  initialSearch?: string;
+  mode?: Mode;
   title?: string;
 }
+
+const dateFilterOptions: Array<[DateFilter, string, string]> = [
+  ["today", "Today", "/events?date=today"],
+  ["week", "This Week", "/events?date=this-week"],
+  ["month", "This Month", "/events?date=this-month"],
+  ["all", "All Upcoming", "/events"]
+];
 
 function getDallasToday() {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -48,13 +61,34 @@ function matchesDateFilter(dateTime: string, filter: DateFilter) {
   return eventDate >= today && eventDate < nextMonth;
 }
 
-export function EventDirectory({ events, initialCity = "All", title = "Upcoming Events" }: EventDirectoryProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+function getCityHref(city: string) {
+  return city === "All" ? "/events" : `/events?city=${encodeURIComponent(city)}`;
+}
+
+function getCategoryHref(category: CategoryFilter) {
+  if (category === "All") return "/events";
+  return `/events?category=${category.toLowerCase()}`;
+}
+
+export function EventDirectory({
+  events,
+  initialCity = "All",
+  initialCategory = "All",
+  initialDate = "all",
+  initialSearch = "",
+  mode = "filter",
+  title = "Upcoming Events"
+}: EventDirectoryProps) {
+  const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
+  const [dateFilter, setDateFilter] = useState<DateFilter>(initialDate);
   const [cityFilter, setCityFilter] = useState(initialCity);
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("All");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(initialCategory);
+  const isLinkMode = mode === "link";
 
   const filteredEvents = useMemo(() => {
+    if (isLinkMode) return events;
+
     const search = searchTerm.trim().toLowerCase();
     return events.filter((event) => {
       const matchesSearch =
@@ -65,11 +99,19 @@ export function EventDirectory({ events, initialCity = "All", title = "Upcoming 
       const matchesCategory = categoryFilter === "All" || event.category === categoryFilter;
       return matchesSearch && matchesCity && matchesCategory && matchesDateFilter(event.dateTime, dateFilter);
     });
-  }, [categoryFilter, cityFilter, dateFilter, events, searchTerm]);
+  }, [categoryFilter, cityFilter, dateFilter, events, isLinkMode, searchTerm]);
+
+  function submitSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isLinkMode) {
+      const query = searchTerm.trim();
+      router.push(query ? `/events?q=${encodeURIComponent(query)}` : "/events");
+    }
+  }
 
   return (
     <section aria-labelledby="events-heading">
-      <div className="controls">
+      <form className="controls" onSubmit={submitSearch}>
         <label className="search-wrap">
           <span className="sr-only">Search events or venues</span>
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -85,18 +127,13 @@ export function EventDirectory({ events, initialCity = "All", title = "Upcoming 
         </label>
 
         <div className="filter-group" role="group" aria-label="Filter events by date">
-          {[
-            ["today", "Today"],
-            ["week", "This Week"],
-            ["month", "This Month"],
-            ["all", "All Upcoming"]
-          ].map(([value, label]) => (
+          {dateFilterOptions.map(([value, label, href]) => (
             <button
               className={`filter-button ${dateFilter === value ? "active" : ""}`}
               key={value}
               type="button"
               aria-pressed={dateFilter === value}
-              onClick={() => setDateFilter(value as DateFilter)}
+              onClick={() => (isLinkMode ? router.push(href) : setDateFilter(value))}
             >
               {label}
             </button>
@@ -112,7 +149,7 @@ export function EventDirectory({ events, initialCity = "All", title = "Upcoming 
                 key={city}
                 type="button"
                 aria-pressed={cityFilter === city}
-                onClick={() => setCityFilter(city)}
+                onClick={() => (isLinkMode ? router.push(getCityHref(city)) : setCityFilter(city))}
               >
                 {city === "All" ? "All DFW" : city}
               </button>
@@ -129,14 +166,14 @@ export function EventDirectory({ events, initialCity = "All", title = "Upcoming 
                 key={category}
                 type="button"
                 aria-pressed={categoryFilter === category}
-                onClick={() => setCategoryFilter(category)}
+                onClick={() => (isLinkMode ? router.push(getCategoryHref(category)) : setCategoryFilter(category))}
               >
                 {category}
               </button>
             ))}
           </div>
         </div>
-      </div>
+      </form>
 
       <div className="results-meta">
         <h2 id="events-heading">{title}</h2>

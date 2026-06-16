@@ -17,9 +17,9 @@ export function SiteHeader() {
         <nav className="main-nav" aria-label="Primary navigation">
           <Link href="/events">Events</Link>
           <Link href="/venues">Venues</Link>
-          <Link href="/dallas">Dallas</Link>
-          <Link href="/fort-worth">Fort Worth</Link>
-          <Link href="/admin">Admin</Link>
+          <Link href="/about">About Us</Link>
+          <Link href="/faqs">FAQs</Link>
+          <Link href="/login">Login / Register</Link>
         </nav>
       </div>
     </header>

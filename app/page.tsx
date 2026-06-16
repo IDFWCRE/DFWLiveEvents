@@ -19,7 +19,11 @@ export default async function HomePage() {
         }
         copy="Discover concerts, comedy nights, venues, and city guides across Dallas-Fort Worth."
       />
-      {error ? <DataState title="Supabase setup needed" message={error} /> : <EventDirectory events={events} title="Featured Events" />}
+      {error ? (
+        <DataState title="Supabase setup needed" message={error} />
+      ) : (
+        <EventDirectory events={events} mode="link" title="Featured Events" />
+      )}
 
       <section className="stack" style={{ marginTop: 48 }}>
         <h2 className="section-title">Explore By City</h2>
