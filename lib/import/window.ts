@@ -10,8 +10,8 @@ export type ImportWindow = {
 };
 
 export function getImportWindow(): ImportWindow {
-  const configuredDays = Number(process.env.IMPORT_WINDOW_DAYS || 60);
-  const days = Number.isFinite(configuredDays) && configuredDays > 0 ? Math.floor(configuredDays) : 60;
+  const configuredDays = Number(process.env.IMPORT_WINDOW_DAYS || 365);
+  const days = Number.isFinite(configuredDays) && configuredDays > 0 ? Math.floor(configuredDays) : 365;
   const start = new Date();
   const end = new Date(start);
   end.setDate(start.getDate() + days);

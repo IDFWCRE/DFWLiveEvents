@@ -8,7 +8,7 @@ Create `.env.local` for local development:
 
 ```bash
 TICKETMASTER_API_KEY=your-ticketmaster-discovery-api-key
-IMPORT_WINDOW_DAYS=60
+IMPORT_WINDOW_DAYS=365
 CRON_SECRET=choose-a-long-random-cron-secret
 EVENTBRITE_PRIVATE_TOKEN=your-eventbrite-private-token
 EVENTBRITE_ORGANIZATION_IDS=comma-separated-organization-ids
@@ -87,7 +87,7 @@ RLS is enabled. Public anon users can read published events, venues, performers,
 All importers use a rolling window from the current time through `IMPORT_WINDOW_DAYS` days in the future. The default is:
 
 ```bash
-IMPORT_WINDOW_DAYS=60
+IMPORT_WINDOW_DAYS=365
 ```
 
 Ticketmaster sends the window to the Discovery API using `startDateTime` and `endDateTime`. Eventbrite configured targets are fetched and then filtered locally when endpoint-level date range filtering is not assumed.
@@ -318,7 +318,7 @@ That route records an `affiliate_clicks` row with the offer id, event id, timest
 
 ## Phase Notes
 
-Phase 1D.5 uses Supabase seed data plus cached Ticketmaster and Eventbrite imports inside a rolling 60-day default window.
+Phase 1D.5 uses Supabase seed data plus cached Ticketmaster and Eventbrite imports inside a rolling 365-day default window.
 
 Not included yet:
 
