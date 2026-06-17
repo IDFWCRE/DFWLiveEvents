@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "import:eventbrite": "tsx scripts/import-eventbrite.ts",
     "import:ticketmaster": "tsx scripts/import-ticketmaster.ts",
     "typecheck": "tsc --noEmit"
   },
