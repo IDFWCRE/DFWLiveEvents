@@ -1,3 +1,5 @@
+import { getImportWindow } from "@/lib/import/window";
+
 export const ticketmasterCities = [
   "Dallas",
   "Fort Worth",
@@ -92,10 +94,6 @@ function getTicketmasterKey() {
   return apiKey;
 }
 
-function getStartDateTime() {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-}
-
 function getMaxPagesPerQuery() {
   const configured = Number(process.env.TICKETMASTER_MAX_PAGES_PER_QUERY || 3);
   if (!Number.isFinite(configured) || configured < 1) return 3;
@@ -131,12 +129,14 @@ async function fetchDiscoveryPage(
   options: TicketmasterFetchOptions = {}
 ) {
   const url = new URL(discoveryUrl);
+  const importWindow = getImportWindow();
   url.searchParams.set("apikey", getTicketmasterKey());
   url.searchParams.set("city", city);
   url.searchParams.set("stateCode", "TX");
   url.searchParams.set("countryCode", "US");
   url.searchParams.set("classificationName", classificationName);
-  url.searchParams.set("startDateTime", getStartDateTime());
+  url.searchParams.set("startDateTime", importWindow.startIso);
+  url.searchParams.set("endDateTime", importWindow.endIso);
   url.searchParams.set("size", "100");
   url.searchParams.set("page", String(page));
   url.searchParams.set("sort", "date,asc");
@@ -174,7 +174,10 @@ export async function fetchTicketmasterEvents(options: TicketmasterFetchOptions 
   const events: TicketmasterEvent[] = [];
   const errors: string[] = [];
   const maxPagesPerQuery = getMaxPagesPerQuery();
-  options.log?.(`[ticketmaster] Starting fetch with max ${maxPagesPerQuery} page(s) per city/category`);
+  const importWindow = getImportWindow();
+  options.log?.(
+    `[ticketmaster] Starting fetch for ${importWindow.label} (${importWindow.startIso} to ${importWindow.endIso}) with max ${maxPagesPerQuery} page(s) per city/category`
+  );
 
   for (const city of ticketmasterCities) {
     for (const classificationName of classifications) {

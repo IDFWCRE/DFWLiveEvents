@@ -8,6 +8,8 @@ Create `.env.local` for local development:
 
 ```bash
 TICKETMASTER_API_KEY=your-ticketmaster-discovery-api-key
+IMPORT_WINDOW_DAYS=60
+CRON_SECRET=choose-a-long-random-cron-secret
 EVENTBRITE_PRIVATE_TOKEN=your-eventbrite-private-token
 EVENTBRITE_ORGANIZATION_IDS=comma-separated-organization-ids
 EVENTBRITE_VENUE_IDS=comma-separated-venue-ids
@@ -50,6 +52,12 @@ Run the Eventbrite importer locally:
 npm run import:eventbrite
 ```
 
+Run both importers locally:
+
+```bash
+npm run import:all
+```
+
 ## Supabase Setup
 
 1. Create a Supabase project.
@@ -68,12 +76,25 @@ The schema includes:
 - `event_offers`
 - `affiliate_clicks`
 - `admin_settings`
+- `source_import_targets`
 
 RLS is enabled. Public anon users can read published events, venues, performers, active ticket sources, and available event offers. Public users can insert affiliate clicks for future tracking. Admin write policies are intentionally left as commented placeholders.
 
+`source_import_targets` is service-role/server-only for now. Public users cannot read or write source targets.
+
+## Rolling Import Window
+
+All importers use a rolling window from the current time through `IMPORT_WINDOW_DAYS` days in the future. The default is:
+
+```bash
+IMPORT_WINDOW_DAYS=60
+```
+
+Ticketmaster sends the window to the Discovery API using `startDateTime` and `endDateTime`. Eventbrite configured targets are fetched and then filtered locally when endpoint-level date range filtering is not assumed.
+
 ## Ticketmaster Import
 
-Phase 1C includes a server-side Ticketmaster Discovery API importer. It fetches upcoming Music and Comedy events for:
+Phase 1C includes a server-side Ticketmaster Discovery API importer. It fetches upcoming Music and Comedy events within the rolling import window for:
 
 - Dallas
 - Fort Worth
@@ -112,7 +133,7 @@ Then run:
 npm run import:ticketmaster
 ```
 
-The script prints a JSON summary with fetched, inserted, updated, skipped, and error counts.
+The script prints progress and a JSON summary with fetched, inserted, updated, skipped, and error counts.
 
 ### Protected API Import
 
@@ -225,6 +246,46 @@ curl -X POST https://your-vercel-domain.vercel.app/api/admin/import/eventbrite \
 
 Eventbrite private tokens and Supabase service role keys are used only server-side.
 
+## Source Import Targets
+
+Eventbrite imports can be configured with environment variables or rows in `source_import_targets`.
+
+For Eventbrite targets:
+
+- `source_name = eventbrite`
+- `target_type = organization`, `venue`, or `event`
+- `target_value = organization ID`, `venue ID`, `event ID`, or Eventbrite event URL
+- `active = true`
+
+Ticketmaster city targets are seeded for future target-driven imports, but the Ticketmaster importer still uses the built-in DFW city list.
+
+## Daily Scheduled Import
+
+Vercel cron is configured in `vercel.json`:
+
+```json
+{
+  "path": "/api/cron/import-events",
+  "schedule": "0 9 * * *"
+}
+```
+
+The cron route accepts `GET` only and returns JSON only.
+
+Manual test with cron secret:
+
+```bash
+curl https://your-vercel-domain.vercel.app/api/cron/import-events \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Manual test with admin import token:
+
+```bash
+curl https://your-vercel-domain.vercel.app/api/cron/import-events \
+  -H "x-admin-import-token: $ADMIN_IMPORT_TOKEN"
+```
+
 ## Outbound Ticket Tracking
 
 Buy Tickets links point to:
@@ -241,6 +302,8 @@ That route records an `affiliate_clicks` row with the offer id, event id, timest
 2. Import the project in Vercel.
 3. Add these environment variables in Vercel Project Settings:
    - `TICKETMASTER_API_KEY`
+   - `IMPORT_WINDOW_DAYS`
+   - `CRON_SECRET`
    - `EVENTBRITE_PRIVATE_TOKEN`
    - `EVENTBRITE_ORGANIZATION_IDS`
    - `EVENTBRITE_VENUE_IDS`
@@ -251,11 +314,11 @@ That route records an `affiliate_clicks` row with the offer id, event id, timest
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 4. Redeploy after adding environment variables.
-5. Run the protected import routes manually or from a trusted scheduler.
+5. Run the protected import routes manually or let Vercel Cron call `/api/cron/import-events`.
 
 ## Phase Notes
 
-Phase 1D uses Supabase seed data plus cached Ticketmaster and Eventbrite imports.
+Phase 1D.5 uses Supabase seed data plus cached Ticketmaster and Eventbrite imports inside a rolling 60-day default window.
 
 Not included yet:
 

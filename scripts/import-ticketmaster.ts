@@ -1,22 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-function loadEnvLocal() {
-  const envPath = resolve(process.cwd(), ".env.local");
-  if (!existsSync(envPath)) return;
-
-  const lines = readFileSync(envPath, "utf8").split(/\r?\n/);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const [key, ...valueParts] = trimmed.split("=");
-    if (!key || process.env[key]) continue;
-    process.env[key] = valueParts.join("=").replace(/^["']|["']$/g, "");
-  }
-}
+import { loadEnvConfig } from "@next/env";
 
 async function main() {
-  loadEnvLocal();
+  loadEnvConfig(process.cwd());
   const { importTicketmasterEvents } = await import("../lib/ticketmaster/importer");
   let summary;
 

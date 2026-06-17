@@ -139,6 +139,24 @@ on conflict (event_id, source_name) do update set
 
 insert into admin_settings (key, value)
 values
-  ('marketplace_phase', '{"phase":"1B","supabase_foundation":true,"ticketmaster_enabled":false,"payments_enabled":false}'::jsonb)
+  ('marketplace_phase', '{"phase":"1D.5","supabase_foundation":true,"ticketmaster_enabled":true,"eventbrite_enabled":true,"payments_enabled":false}'::jsonb)
 on conflict (key) do update set
   value = excluded.value;
+
+insert into source_import_targets (source_name, target_type, target_value, label, city, category, active, notes)
+values
+  ('ticketmaster', 'city', 'Dallas', 'Dallas Ticketmaster import', 'Dallas', null, true, 'Seeded city target for future target-driven Ticketmaster imports.'),
+  ('ticketmaster', 'city', 'Fort Worth', 'Fort Worth Ticketmaster import', 'Fort Worth', null, true, 'Seeded city target for future target-driven Ticketmaster imports.'),
+  ('ticketmaster', 'city', 'Arlington', 'Arlington Ticketmaster import', 'Arlington', null, true, 'Seeded city target for future target-driven Ticketmaster imports.'),
+  ('ticketmaster', 'city', 'Denton', 'Denton Ticketmaster import', 'Denton', null, true, 'Seeded city target for future target-driven Ticketmaster imports.'),
+  ('ticketmaster', 'city', 'Irving', 'Irving Ticketmaster import', 'Irving', null, true, 'Seeded city target for future target-driven Ticketmaster imports.'),
+  ('ticketmaster', 'city', 'Grand Prairie', 'Grand Prairie Ticketmaster import', 'Grand Prairie', null, true, 'Seeded city target for future target-driven Ticketmaster imports.'),
+  ('ticketmaster', 'city', 'Plano', 'Plano Ticketmaster import', 'Plano', null, true, 'Seeded city target for future target-driven Ticketmaster imports.'),
+  ('ticketmaster', 'city', 'Frisco', 'Frisco Ticketmaster import', 'Frisco', null, true, 'Seeded city target for future target-driven Ticketmaster imports.'),
+  ('ticketmaster', 'city', 'McKinney', 'McKinney Ticketmaster import', 'McKinney', null, true, 'Seeded city target for future target-driven Ticketmaster imports.')
+on conflict (source_name, target_type, target_value) do update set
+  label = excluded.label,
+  city = excluded.city,
+  category = excluded.category,
+  active = excluded.active,
+  notes = excluded.notes;

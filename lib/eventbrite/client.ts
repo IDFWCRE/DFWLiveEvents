@@ -1,7 +1,10 @@
+import type { SourceImportTarget } from "@/lib/import/source-targets";
+
 const eventbriteBaseUrl = "https://www.eventbriteapi.com/v3";
 
 export type EventbriteFetchOptions = {
   log?: (message: string) => void;
+  targets?: SourceImportTarget[];
 };
 
 export type EventbriteEvent = {
@@ -74,6 +77,18 @@ function splitEnvList(name: string) {
   return (process.env[name] || "")
     .split(",")
     .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function unique(values: string[]) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function getTargetsByType(targets: SourceImportTarget[] | undefined, targetType: string) {
+  return (targets || [])
+    .filter((target) => target.source_name.toLowerCase() === "eventbrite")
+    .filter((target) => target.target_type.toLowerCase() === targetType)
+    .map((target) => target.target_value.trim())
     .filter(Boolean);
 }
 
@@ -170,9 +185,13 @@ export async function fetchEventbriteEvents(options: EventbriteFetchOptions = {}
   const errors: string[] = [];
   let skippedCount = 0;
 
-  const organizationIds = splitEnvList("EVENTBRITE_ORGANIZATION_IDS");
-  const venueIds = splitEnvList("EVENTBRITE_VENUE_IDS");
-  const eventIds = splitEnvList("EVENTBRITE_EVENT_IDS")
+  const organizationIds = unique([
+    ...splitEnvList("EVENTBRITE_ORGANIZATION_IDS"),
+    ...getTargetsByType(options.targets, "organization")
+  ]);
+  const venueIds = unique([...splitEnvList("EVENTBRITE_VENUE_IDS"), ...getTargetsByType(options.targets, "venue")]);
+  const eventTargets = unique([...splitEnvList("EVENTBRITE_EVENT_IDS"), ...getTargetsByType(options.targets, "event")]);
+  const eventIds = eventTargets
     .map(extractEventbriteEventId)
     .filter((eventId): eventId is string => Boolean(eventId));
 
@@ -210,8 +229,7 @@ export async function fetchEventbriteEvents(options: EventbriteFetchOptions = {}
     await sleep(275);
   }
 
-  const configuredEventIds = splitEnvList("EVENTBRITE_EVENT_IDS");
-  skippedCount += configuredEventIds.length - eventIds.length;
+  skippedCount += eventTargets.length - eventIds.length;
 
   return {
     events,

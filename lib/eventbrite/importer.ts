@@ -1,4 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getImportWindow, isDateInImportWindow } from "@/lib/import/window";
+import { getActiveSourceImportTargets, type SourceImportTarget } from "@/lib/import/source-targets";
 import { fetchEventbriteEvents } from "./client";
 import { normalizeEventbriteEvent, type NormalizedEventbriteEvent } from "./normalize";
 
@@ -175,7 +177,17 @@ function dedupeNormalizedEvents(events: NormalizedEventbriteEvent[]) {
 
 export async function importEventbriteEvents(options: EventbriteImportOptions = {}): Promise<EventbriteImportSummary> {
   options.log?.("[eventbrite] Import started");
-  const fetched = await fetchEventbriteEvents({ log: options.log });
+  const importWindow = getImportWindow();
+  options.log?.(`[eventbrite] Import window: ${importWindow.label} (${importWindow.startIso} to ${importWindow.endIso})`);
+  let targets: SourceImportTarget[] = [];
+  try {
+    targets = await getActiveSourceImportTargets("eventbrite");
+    options.log?.(`[eventbrite] Loaded ${targets.length} active source_import_targets row(s)`);
+  } catch (error) {
+    options.log?.(`[eventbrite] Could not load source_import_targets: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const fetched = await fetchEventbriteEvents({ log: options.log, targets });
   const errors = [...fetched.errors];
   const normalizedResults = fetched.events.map(normalizeEventbriteEvent);
   const normalizedEvents = dedupeNormalizedEvents(
@@ -185,13 +197,17 @@ export async function importEventbriteEvents(options: EventbriteImportOptions = 
           options.log?.(`[eventbrite] Skipped: ${result.reason}`);
           return false;
         }
+        if (!isDateInImportWindow(`${result.event.eventDate}T${result.event.eventTime || "00:00:00"}`, importWindow)) {
+          options.log?.(`[eventbrite] Skipped outside import window: ${result.event.title}`);
+          return false;
+        }
         return true;
       })
       .map((result) => result.event)
       .filter((event): event is NormalizedEventbriteEvent => Boolean(event))
   );
 
-  const skippedCount = fetched.skippedCount + normalizedResults.filter((result) => result.skipped).length;
+  const skippedCount = fetched.skippedCount + normalizedResults.filter((result) => result.skipped).length + (normalizedResults.length - normalizedEvents.length);
   const supabase = createSupabaseAdminClient();
 
   await ensureEventbriteSource(supabase);

@@ -130,12 +130,29 @@ create table if not exists admin_settings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists source_import_targets (
+  id uuid primary key default gen_random_uuid(),
+  source_name text not null,
+  target_type text not null,
+  target_value text not null,
+  label text,
+  city text,
+  category text,
+  active boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint unique_source_import_target unique (source_name, target_type, target_value)
+);
+
 create index if not exists idx_events_status_date on events(status, event_date, event_time);
 create index if not exists idx_events_category on events(category);
 create index if not exists idx_events_venue_id on events(venue_id);
 create index if not exists idx_venues_city on venues(city);
 create index if not exists idx_event_offers_event_available on event_offers(event_id, available);
 create index if not exists idx_affiliate_clicks_clicked_at on affiliate_clicks(clicked_at);
+create index if not exists idx_source_import_targets_active_source on source_import_targets(active, source_name);
+create index if not exists idx_source_import_targets_type on source_import_targets(source_name, target_type);
 
 do $$
 begin
@@ -169,6 +186,10 @@ drop trigger if exists set_admin_settings_updated_at on admin_settings;
 create trigger set_admin_settings_updated_at before update on admin_settings
 for each row execute function set_updated_at();
 
+drop trigger if exists set_source_import_targets_updated_at on source_import_targets;
+create trigger set_source_import_targets_updated_at before update on source_import_targets
+for each row execute function set_updated_at();
+
 alter table venues enable row level security;
 alter table performers enable row level security;
 alter table events enable row level security;
@@ -177,6 +198,7 @@ alter table ticket_sources enable row level security;
 alter table event_offers enable row level security;
 alter table affiliate_clicks enable row level security;
 alter table admin_settings enable row level security;
+alter table source_import_targets enable row level security;
 
 drop policy if exists "Public can read venues" on venues;
 create policy "Public can read venues"
@@ -234,6 +256,8 @@ to anon, authenticated
 with check (true);
 
 -- No public update/delete policies are defined. Public writes remain blocked by RLS.
+-- source_import_targets intentionally has no public read/write policy.
+-- It is managed through service-role/server-side import tooling for now.
 -- Future admin policies should be scoped to authenticated admin roles, for example:
 -- create policy "Admins can manage events" on events for all
 -- to authenticated using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
