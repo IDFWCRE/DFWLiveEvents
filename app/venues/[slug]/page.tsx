@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import { DataState } from "@/components/DataState";
 import { EventDirectory } from "@/components/EventDirectory";
+import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
 import { formatEventDate } from "@/lib/events";
 import { getUpcomingEvents, getVenueBySlug } from "@/lib/supabase/queries";
 
 export default async function VenueDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const { user } = await getCurrentUserWithProfile();
   const [{ data: venue, error: venueError }, { data: events, error: eventsError }] = await Promise.all([
     getVenueBySlug(slug),
     getUpcomingEvents()
@@ -35,7 +37,7 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ sl
           <p className="muted">No placeholder events are scheduled at this venue yet.</p>
         )}
       </section>
-      <EventDirectory events={venueEvents} initialCity={venue.city} title={`${venue.name} Events`} />
+      <EventDirectory events={venueEvents} isLoggedIn={Boolean(user)} initialCity={venue.city} title={`${venue.name} Events`} />
     </>
   );
 }

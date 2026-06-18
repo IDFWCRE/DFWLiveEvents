@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { EventDirectory } from "@/components/EventDirectory";
 import { PageHero } from "@/components/PageHero";
+import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
 import { getCityBySlug } from "@/lib/cities";
 import { getUpcomingEvents } from "@/lib/supabase/queries";
 import type { CitySlug } from "@/types/event";
@@ -17,6 +18,7 @@ export async function CityLandingPage({ citySlug }: CityLandingPageProps) {
   }
 
   const { data: events, error } = await getUpcomingEvents();
+  const { user } = await getCurrentUserWithProfile();
 
   return (
     <>
@@ -32,7 +34,7 @@ export async function CityLandingPage({ citySlug }: CityLandingPageProps) {
       {error ? (
         <DataState title="Supabase setup needed" message={error} />
       ) : (
-        <EventDirectory events={events} initialCity={city.name} title={`${city.name} Events`} />
+        <EventDirectory events={events} isLoggedIn={Boolean(user)} initialCity={city.name} title={`${city.name} Events`} />
       )}
     </>
   );

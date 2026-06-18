@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { logoutAction } from "@/lib/auth/actions";
+import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  const { user, profile } = await getCurrentUserWithProfile();
+
   return (
     <header className="site-header">
       <div className="header-inner">
@@ -19,7 +23,17 @@ export function SiteHeader() {
           <Link href="/venues">Venues</Link>
           <Link href="/about">About Us</Link>
           <Link href="/faqs">FAQs</Link>
-          <Link href="/login">Login / Register</Link>
+          {profile?.role === "admin" ? <Link href="/admin">Admin</Link> : null}
+          {user ? (
+            <>
+              <Link href="/account">Account</Link>
+              <form action={logoutAction}>
+                <button className="nav-button" type="submit">Logout</button>
+              </form>
+            </>
+          ) : (
+            <Link href="/login">Login / Register</Link>
+          )}
         </nav>
       </div>
     </header>

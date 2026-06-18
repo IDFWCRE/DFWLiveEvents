@@ -1,6 +1,7 @@
 import { DataState } from "@/components/DataState";
 import { EventDirectory } from "@/components/EventDirectory";
 import { PageHero } from "@/components/PageHero";
+import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
 import { getUpcomingEvents } from "@/lib/supabase/queries";
 import type { EventCategory } from "@/types/event";
 
@@ -26,6 +27,7 @@ function getInitialDate(date?: string) {
 
 export default async function EventsPage({ searchParams }: { searchParams: Promise<EventsSearchParams> }) {
   const params = await searchParams;
+  const { user } = await getCurrentUserWithProfile();
   const { data: events, error } = await getUpcomingEvents();
   const initialCity = params.city || "All";
   const initialCategory = getInitialCategory(params.category);
@@ -52,6 +54,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
           initialCity={initialCity}
           initialDate={initialDate}
           initialSearch={initialSearch}
+          isLoggedIn={Boolean(user)}
         />
       )}
     </>

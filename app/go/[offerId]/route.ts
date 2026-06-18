@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function jsonError(message: string, status: number) {
@@ -22,6 +23,16 @@ function getSafeRedirectUrl(affiliateUrl: string | null, sourceListingUrl: strin
 export async function GET(request: Request, { params }: { params: Promise<{ offerId: string }> }) {
   const { offerId } = await params;
   console.log(`[go] offerId received: ${offerId}`);
+  const requestUrl = new URL(request.url);
+  const authClient = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await authClient.auth.getUser();
+
+  if (!user) {
+    console.log("[go] no user session; redirecting to login");
+    return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(`/go/${offerId}`)}`, requestUrl.origin));
+  }
 
   const supabase = createSupabaseAdminClient();
   const { data: offer, error } = await supabase
@@ -55,6 +66,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ offe
   const { error: clickError } = await supabase.from("affiliate_clicks").insert({
     event_id: offer.event_id,
     event_offer_id: offer.id,
+    user_id: user.id,
+    user_email: user.email,
     source_name: offer.source_name,
     destination_url: redirectUrl.toString(),
     referrer: request.headers.get("referer"),

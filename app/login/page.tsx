@@ -1,22 +1,46 @@
+import Link from "next/link";
 import { PageHero } from "@/components/PageHero";
+import { loginAction } from "@/lib/auth/actions";
 
-export default function LoginPage() {
+type LoginSearchParams = {
+  next?: string;
+  error?: string;
+  message?: string;
+};
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<LoginSearchParams> }) {
+  const params = await searchParams;
+  const next = params.next || "/account";
+
   return (
     <>
       <PageHero
         eyebrow="Accounts"
         title={
           <>
-            Login and registration <span className="accent">coming soon.</span>
+            Login to <span className="accent">buy tickets.</span>
           </>
         }
-        copy="Future buyer and seller accounts will support saved events, listing tools, and marketplace workflows."
+        copy="Create a free account or sign in to continue to Ticketmaster, Eventbrite, and other ticketing partners."
       />
       <section className="detail-panel stack">
-        <h2 className="section-title">No Auth Yet</h2>
+        <h2 className="section-title">Login</h2>
+        {params.error ? <p className="auth-message auth-error">{params.error}</p> : null}
+        {params.message ? <p className="auth-message auth-success">{params.message}</p> : null}
+        <form className="auth-form" action={loginAction}>
+          <input type="hidden" name="next" value={next} />
+          <label>
+            Email
+            <input className="admin-input" type="email" name="email" required />
+          </label>
+          <label>
+            Password
+            <input className="admin-input" type="password" name="password" required />
+          </label>
+          <button className="primary-button" type="submit">Login</button>
+        </form>
         <p className="muted">
-          Authentication is intentionally not enabled in this phase. This page reserves the public account entry point
-          for a later release.
+          New here? <Link className="text-link" href={`/register?next=${encodeURIComponent(next)}`}>Create an account</Link>.
         </p>
       </section>
     </>

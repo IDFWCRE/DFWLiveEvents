@@ -1,12 +1,14 @@
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { PageHero } from "@/components/PageHero";
+import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
 import { getImportWindow } from "@/lib/import/window";
 
 function envStatus(name: string) {
   return process.env[name] ? "Yes" : "No";
 }
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  const { user, profile } = await getCurrentUserWithProfile();
   const importWindow = getImportWindow();
   const envRows: Array<[string, string]> = [
     ["NEXT_PUBLIC_SUPABASE_URL", envStatus("NEXT_PUBLIC_SUPABASE_URL")],
@@ -30,6 +32,15 @@ export default function AdminPage() {
         }
         copy="Operational dashboard for protected imports, source targets, and import history. Secrets stay server-side."
       />
+      {profile?.role === "admin" ? (
+        <section className="detail-panel stack" style={{ marginBottom: 28 }}>
+          <h2 className="section-title">Logged-In Admin</h2>
+          <p className="muted">
+            Signed in as {user?.email}. Import controls still accept `ADMIN_IMPORT_TOKEN`; reseller APIs also allow this
+            admin role.
+          </p>
+        </section>
+      ) : null}
       <AdminDashboard
         envRows={envRows}
         importWindowLabel={importWindow.label}

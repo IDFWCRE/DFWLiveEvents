@@ -133,6 +133,19 @@ a {
   color: var(--text);
 }
 
+.nav-button {
+  padding: 0;
+  color: var(--muted);
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  font-weight: 700;
+}
+
+.nav-button:hover {
+  color: var(--text);
+}
+
 main {
   min-height: calc(100vh - 156px);
   padding: 70px 0 80px;
@@ -552,6 +565,62 @@ h1 {
 .admin-input:focus {
   border-color: rgba(255, 107, 26, 0.65);
   box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.12);
+}
+
+.auth-form {
+  display: grid;
+  max-width: 560px;
+  gap: 16px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.auth-options {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.auth-options legend {
+  padding: 0 8px;
+  color: var(--orange-light);
+  font-weight: 850;
+}
+
+.auth-options label {
+  display: inline-flex;
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.auth-message {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+.auth-error {
+  color: #ffb4b4;
+  background: rgba(255, 83, 83, 0.12);
+}
+
+.auth-success {
+  color: #a9f5c6;
+  background: rgba(63, 185, 110, 0.13);
+}
+
+.text-link {
+  color: var(--orange-light);
+  font-weight: 850;
 }
 
 .admin-inline .admin-input {

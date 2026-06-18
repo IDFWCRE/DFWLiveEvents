@@ -3,9 +3,11 @@ import { DataState } from "@/components/DataState";
 import { EventDirectory } from "@/components/EventDirectory";
 import { PageHero } from "@/components/PageHero";
 import { cities } from "@/lib/cities";
+import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
 import { getFeaturedEvents } from "@/lib/supabase/queries";
 
 export default async function HomePage() {
+  const { user } = await getCurrentUserWithProfile();
   const { data: events, error } = await getFeaturedEvents();
 
   return (
@@ -22,7 +24,7 @@ export default async function HomePage() {
       {error ? (
         <DataState title="Supabase setup needed" message={error} />
       ) : (
-        <EventDirectory events={events} mode="link" title="Featured Events" />
+        <EventDirectory events={events} isLoggedIn={Boolean(user)} mode="link" title="Featured Events" />
       )}
 
       <section className="stack" style={{ marginTop: 48 }}>

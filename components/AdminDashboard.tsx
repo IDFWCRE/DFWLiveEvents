@@ -30,6 +30,19 @@ type ImportRun = {
   error_count: number;
 };
 
+type ResellerApplication = {
+  id: string;
+  user_id: string;
+  business_name: string | null;
+  display_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  website_url: string | null;
+  verification_status: string;
+  terms_accepted_at: string | null;
+  created_at: string;
+};
+
 type TargetForm = {
   id?: string;
   source_name: "ticketmaster" | "eventbrite";
@@ -84,6 +97,7 @@ export function AdminDashboard({
   const [importResult, setImportResult] = useState<unknown>(null);
   const [targets, setTargets] = useState<SourceTarget[]>([]);
   const [runs, setRuns] = useState<ImportRun[]>([]);
+  const [resellers, setResellers] = useState<ResellerApplication[]>([]);
   const [form, setForm] = useState<TargetForm>(emptyForm);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
@@ -140,6 +154,37 @@ export function AdminDashboard({
       const json = await fetchJson("/api/admin/import-runs");
       setRuns(json.runs || []);
       setStatus("Import history refreshed.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function refreshResellers() {
+    if (!hasToken) return setStatus("Add the admin token before loading reseller applications.");
+    setLoadingAction("resellers");
+    try {
+      const json = await fetchJson("/api/admin/resellers");
+      setResellers(json.applications || []);
+      setStatus("Reseller applications refreshed.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function updateReseller(id: string, action: "approve" | "reject" | "suspend") {
+    if (!hasToken) return setStatus("Add the admin token before updating reseller applications.");
+    setLoadingAction(id);
+    try {
+      await fetchJson(`/api/admin/resellers/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ action })
+      });
+      setStatus(`Reseller ${action} action saved.`);
+      await refreshResellers();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {
@@ -384,6 +429,47 @@ export function AdminDashboard({
                   <td>{run.skipped_count}</td>
                   <td>{run.error_count}</td>
                   <td>{duration(run.started_at, run.finished_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="detail-panel stack">
+        <div className="admin-section-head">
+          <h2 className="section-title">Reseller Applications</h2>
+          <button className="primary-button" type="button" onClick={refreshResellers}>
+            {loadingAction === "resellers" ? "Loading..." : "Refresh Resellers"}
+          </button>
+        </div>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Business</th>
+                <th>Display</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resellers.map((application) => (
+                <tr key={application.id}>
+                  <td>{formatDate(application.created_at)}</td>
+                  <td>{application.business_name || "-"}</td>
+                  <td>{application.display_name || "-"}</td>
+                  <td>{application.contact_email || "-"}</td>
+                  <td><span className={`status-pill status-${application.verification_status}`}>{application.verification_status}</span></td>
+                  <td>
+                    <div className="admin-row-actions">
+                      <button className="filter-button" type="button" onClick={() => updateReseller(application.id, "approve")}>Approve</button>
+                      <button className="filter-button" type="button" onClick={() => updateReseller(application.id, "reject")}>Reject</button>
+                      <button className="filter-button" type="button" onClick={() => updateReseller(application.id, "suspend")}>Suspend</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

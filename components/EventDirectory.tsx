@@ -19,6 +19,7 @@ interface EventDirectoryProps {
   initialSearch?: string;
   mode?: Mode;
   title?: string;
+  isLoggedIn?: boolean;
 }
 
 const dateFilterOptions: Array<[DateFilter, string, string]> = [
@@ -77,7 +78,8 @@ export function EventDirectory({
   initialDate = "all",
   initialSearch = "",
   mode = "filter",
-  title = "Upcoming Events"
+  title = "Upcoming Events",
+  isLoggedIn = false
 }: EventDirectoryProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(initialSearch);
@@ -185,7 +187,7 @@ export function EventDirectory({
       {filteredEvents.length ? (
         <div className="event-grid">
           {filteredEvents.map((event) => (
-            <EventCard event={event} key={event.id} />
+            <EventCard event={event} isLoggedIn={isLoggedIn} key={event.id} />
           ))}
         </div>
       ) : (

@@ -17,6 +17,7 @@ EVENTBRITE_EVENT_IDS=comma-separated-event-ids-or-urls
 EVENTBRITE_MAX_PAGES_PER_QUERY=3
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 ADMIN_IMPORT_TOKEN=choose-a-long-random-token
+ADMIN_EMAILS=admin@example.com,ops@example.com
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
@@ -78,11 +79,76 @@ The schema includes:
 - `admin_settings`
 - `source_import_targets`
 - `source_import_runs`
+- `user_profiles`
+- `seller_profiles`
 
 RLS is enabled. Public anon users can read published events, venues, performers, active ticket sources, and available event offers. Public users can insert affiliate clicks for future tracking. Admin write policies are intentionally left as commented placeholders.
 
 `source_import_targets` is service-role/server-only for now. Public users cannot read or write source targets.
 `source_import_runs` is also service-role/server-only. It is read through protected admin APIs only.
+
+## Supabase Auth
+
+Phase 1F uses Supabase Auth with App Router session cookies via `@supabase/ssr`.
+
+Configure Supabase Auth URL settings:
+
+- Site URL local: `http://localhost:3000`
+- Site URL production: `https://your-production-domain.com`
+- Redirect URL local: `http://localhost:3000/auth/callback`
+- Redirect URL production: `https://your-production-domain.com/auth/callback`
+
+Auth routes:
+
+- `/login`
+- `/register`
+- `/auth/callback`
+- `/account`
+- `/account/reseller`
+
+`/login` and `/register` support a `next` query param, such as:
+
+```text
+/login?next=/go/[offerId]
+```
+
+After successful login or registration, the app redirects back to `next` when provided.
+
+## Roles And Profiles
+
+New Auth users get a `user_profiles` row automatically through a database trigger.
+
+Roles:
+
+- `buyer`: default role.
+- `reseller`: set only after reseller approval.
+- `admin`: promoted server-side when the signed-in email is listed in `ADMIN_EMAILS`.
+
+Reseller statuses:
+
+- `none`
+- `pending`
+- `approved`
+- `rejected`
+- `suspended`
+
+Seller applications live in `seller_profiles`. Registration with account type `Reseller` creates a pending reseller profile when Supabase creates the auth user. Users can also apply from `/account/reseller`.
+
+Normal authenticated users can read/update their own profile rows, but schema triggers preserve protected fields like `role`, `reseller_status`, `user_id`, and `verification_status`. Service-role server routes handle approval actions.
+
+## Gated Buy Tickets
+
+Public users can browse all public event, venue, city, and detail pages. Public users cannot continue to external ticketing sites.
+
+Flow:
+
+1. Logged-out user clicks Buy Tickets.
+2. The UI sends them to `/login?next=/go/[offerId]`.
+3. `/go/[offerId]` also enforces login server-side if visited directly.
+4. After login/register, the user returns to `/go/[offerId]`.
+5. `/go/[offerId]` records `affiliate_clicks` and redirects to `affiliate_url` or `source_listing_url`.
+
+`affiliate_clicks` now supports `user_id` and `user_email` for logged-in redirect tracking.
 
 ## Rolling Import Window
 
@@ -267,6 +333,7 @@ Admin sections:
 - Source Targets: list, add, edit, deactivate/reactivate, and delete import targets.
 - Import History: latest 50 `source_import_runs` rows.
 - Environment Status: yes/no status only, never secret values.
+- Reseller Applications: approve, reject, or suspend reseller requests.
 
 Protected admin import routes:
 
@@ -385,19 +452,25 @@ That route records an `affiliate_clicks` row with the offer id, event id, timest
    - `EVENTBRITE_MAX_PAGES_PER_QUERY`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `ADMIN_IMPORT_TOKEN`
+   - `ADMIN_EMAILS`
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. Redeploy after adding environment variables.
-5. Run the protected import routes manually or let Vercel Cron call `/api/cron/import-events`.
+4. In Supabase Auth settings, add your production `/auth/callback` redirect URL.
+5. Redeploy after adding environment variables.
+6. Run the protected import routes manually or let Vercel Cron call `/api/cron/import-events`.
 
 ## Phase Notes
 
 Phase 1D.5 uses Supabase seed data plus cached Ticketmaster and Eventbrite imports inside a rolling 365-day default window.
+Phase 1F gates outbound Buy Tickets redirects behind Supabase Auth and adds buyer/reseller/admin profiles.
 
 Not included yet:
 
 - Payments
 - User resale
+- Stripe checkout
+- Payouts
+- Ticket transfer
 - Service role access in frontend code
 - Website scraping
 - Eventbrite broad public search assumptions

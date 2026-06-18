@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { currentUserIsAdmin } from "@/lib/auth/profiles";
 
 export function isAdminImportTokenAuthorized(request: Request) {
   const configuredToken = process.env.ADMIN_IMPORT_TOKEN;
@@ -18,4 +19,9 @@ export function isCronOrAdminAuthorized(request: Request) {
 
 export function unauthorizedJson() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+export async function isAdminTokenOrRoleAuthorized(request: Request) {
+  if (isAdminImportTokenAuthorized(request)) return true;
+  return currentUserIsAdmin().catch(() => false);
 }

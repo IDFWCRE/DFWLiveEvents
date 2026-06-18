@@ -4,10 +4,12 @@ import type { Event } from "@/types/event";
 
 interface EventCardProps {
   event: Event;
+  isLoggedIn?: boolean;
 }
 
-export function EventCard({ event }: EventCardProps) {
-  const ticketHref = event.offerId ? `/go/${event.offerId}` : event.ticketUrl;
+export function EventCard({ event, isLoggedIn = false }: EventCardProps) {
+  const goHref = event.offerId ? `/go/${event.offerId}` : event.ticketUrl;
+  const ticketHref = isLoggedIn ? goHref : `/login?next=${encodeURIComponent(goHref)}`;
   const date = new Date(event.dateTime);
   const month = new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -41,8 +43,8 @@ export function EventCard({ event }: EventCardProps) {
             {event.venue.name} · {event.city}
           </span>
         </div>
-        <a className="ticket-button" href={ticketHref} target={event.offerId ? undefined : "_blank"} rel="noopener noreferrer">
-          <span>Buy Tickets</span>
+        <a className="ticket-button" href={ticketHref} target={isLoggedIn && !event.offerId ? "_blank" : undefined} rel="noopener noreferrer">
+          <span>{isLoggedIn ? "Buy Tickets" : "Login to Buy Tickets"}</span>
           <span aria-hidden="true">↗</span>
         </a>
       </div>

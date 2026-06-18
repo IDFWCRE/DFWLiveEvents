@@ -165,6 +165,34 @@ create table if not exists source_import_runs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists user_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  full_name text,
+  phone text,
+  role text not null default 'buyer',
+  reseller_status text not null default 'none',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists seller_profiles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  business_name text,
+  display_name text,
+  contact_email text,
+  contact_phone text,
+  website_url text,
+  verification_status text not null default 'not_started',
+  terms_accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table affiliate_clicks add column if not exists user_id uuid references auth.users(id) on delete set null;
+alter table affiliate_clicks add column if not exists user_email text;
+
 create index if not exists idx_events_status_date on events(status, event_date, event_time);
 create index if not exists idx_events_category on events(category);
 create index if not exists idx_events_venue_id on events(venue_id);
@@ -176,6 +204,11 @@ create index if not exists idx_source_import_targets_type on source_import_targe
 create index if not exists idx_source_import_runs_source_name on source_import_runs(source_name);
 create index if not exists idx_source_import_runs_status on source_import_runs(status);
 create index if not exists idx_source_import_runs_started_at on source_import_runs(started_at desc);
+create index if not exists idx_user_profiles_role on user_profiles(role);
+create index if not exists idx_user_profiles_reseller_status on user_profiles(reseller_status);
+create index if not exists idx_seller_profiles_user_id on seller_profiles(user_id);
+create index if not exists idx_seller_profiles_verification_status on seller_profiles(verification_status);
+create index if not exists idx_affiliate_clicks_user_id on affiliate_clicks(user_id);
 
 do $$
 begin
@@ -219,6 +252,138 @@ begin
   end if;
 end $$;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'user_profiles_role_check'
+      and conrelid = 'public.user_profiles'::regclass
+  ) then
+    alter table public.user_profiles
+    add constraint user_profiles_role_check check (role in ('buyer', 'reseller', 'admin'));
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'user_profiles_reseller_status_check'
+      and conrelid = 'public.user_profiles'::regclass
+  ) then
+    alter table public.user_profiles
+    add constraint user_profiles_reseller_status_check check (reseller_status in ('none', 'pending', 'approved', 'rejected', 'suspended'));
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'seller_profiles_verification_status_check'
+      and conrelid = 'public.seller_profiles'::regclass
+  ) then
+    alter table public.seller_profiles
+    add constraint seller_profiles_verification_status_check check (verification_status in ('not_started', 'pending', 'approved', 'rejected'));
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'seller_profiles_user_id_key'
+      and conrelid = 'public.seller_profiles'::regclass
+  )
+  and to_regclass('public.seller_profiles_user_id_key') is null then
+    create unique index seller_profiles_user_id_key
+    on public.seller_profiles (user_id);
+  end if;
+end $$;
+
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requested_account_type text;
+begin
+  requested_account_type := coalesce(new.raw_user_meta_data ->> 'account_type', 'buyer');
+
+  insert into public.user_profiles (id, email, full_name, role, reseller_status)
+  values (
+    new.id,
+    new.email,
+    new.raw_user_meta_data ->> 'full_name',
+    'buyer',
+    case when requested_account_type = 'reseller' then 'pending' else 'none' end
+  )
+  on conflict (id) do update set
+    email = excluded.email,
+    full_name = coalesce(excluded.full_name, public.user_profiles.full_name),
+    reseller_status = case
+      when public.user_profiles.reseller_status = 'none' and requested_account_type = 'reseller' then 'pending'
+      else public.user_profiles.reseller_status
+    end;
+
+  if requested_account_type = 'reseller' then
+    insert into public.seller_profiles (
+      user_id,
+      display_name,
+      contact_email,
+      verification_status
+    )
+    values (
+      new.id,
+      new.raw_user_meta_data ->> 'full_name',
+      new.email,
+      'pending'
+    )
+    on conflict (user_id) do nothing;
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.protect_user_profile_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.role() = 'authenticated' then
+    new.id = old.id;
+    new.role = old.role;
+    new.reseller_status = old.reseller_status;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.protect_seller_profile_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.role() = 'authenticated' then
+    new.id = old.id;
+    new.user_id = old.user_id;
+    new.verification_status = old.verification_status;
+  end if;
+  return new;
+end;
+$$;
+
 drop trigger if exists set_venues_updated_at on venues;
 create trigger set_venues_updated_at before update on venues
 for each row execute function set_updated_at();
@@ -247,6 +412,26 @@ drop trigger if exists set_source_import_targets_updated_at on source_import_tar
 create trigger set_source_import_targets_updated_at before update on source_import_targets
 for each row execute function set_updated_at();
 
+drop trigger if exists set_user_profiles_updated_at on user_profiles;
+create trigger set_user_profiles_updated_at before update on user_profiles
+for each row execute function set_updated_at();
+
+drop trigger if exists protect_user_profiles_fields on user_profiles;
+create trigger protect_user_profiles_fields before update on user_profiles
+for each row execute function public.protect_user_profile_fields();
+
+drop trigger if exists set_seller_profiles_updated_at on seller_profiles;
+create trigger set_seller_profiles_updated_at before update on seller_profiles
+for each row execute function set_updated_at();
+
+drop trigger if exists protect_seller_profiles_fields on seller_profiles;
+create trigger protect_seller_profiles_fields before update on seller_profiles
+for each row execute function public.protect_seller_profile_fields();
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
+for each row execute function public.handle_new_auth_user();
+
 alter table venues enable row level security;
 alter table performers enable row level security;
 alter table events enable row level security;
@@ -257,6 +442,8 @@ alter table affiliate_clicks enable row level security;
 alter table admin_settings enable row level security;
 alter table source_import_targets enable row level security;
 alter table source_import_runs enable row level security;
+alter table user_profiles enable row level security;
+alter table seller_profiles enable row level security;
 
 drop policy if exists "Public can read venues" on venues;
 create policy "Public can read venues"
@@ -312,6 +499,38 @@ create policy "Public can insert affiliate clicks"
 on affiliate_clicks for insert
 to anon, authenticated
 with check (true);
+
+drop policy if exists "Users can read own profile" on user_profiles;
+create policy "Users can read own profile"
+on user_profiles for select
+to authenticated
+using (auth.uid() = id);
+
+drop policy if exists "Users can update own profile" on user_profiles;
+create policy "Users can update own profile"
+on user_profiles for update
+to authenticated
+using (auth.uid() = id)
+with check (auth.uid() = id);
+
+drop policy if exists "Users can read own seller profile" on seller_profiles;
+create policy "Users can read own seller profile"
+on seller_profiles for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own seller profile" on seller_profiles;
+create policy "Users can insert own seller profile"
+on seller_profiles for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own seller profile" on seller_profiles;
+create policy "Users can update own seller profile"
+on seller_profiles for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
 
 -- No public update/delete policies are defined. Public writes remain blocked by RLS.
 -- source_import_targets intentionally has no public read/write policy.
