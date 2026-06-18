@@ -35,5 +35,6 @@ export interface Event {
   description: string;
   ticketUrl: string;
   offerId?: string;
+  ticketSourceName?: string;
   status: "draft" | "published" | "cancelled";
 }

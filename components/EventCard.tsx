@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatEventDate } from "@/lib/events";
+import { isExternalTicketOffer } from "@/lib/tickets";
 import type { Event } from "@/types/event";
 
 interface EventCardProps {
@@ -10,6 +11,7 @@ interface EventCardProps {
 export function EventCard({ event, isLoggedIn = false }: EventCardProps) {
   const goHref = event.offerId ? `/go/${event.offerId}` : event.ticketUrl;
   const ticketHref = isLoggedIn ? goHref : `/login?next=${encodeURIComponent(goHref)}`;
+  const opensInNewTab = isExternalTicketOffer(event.ticketSourceName);
   const date = new Date(event.dateTime);
   const month = new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -43,7 +45,7 @@ export function EventCard({ event, isLoggedIn = false }: EventCardProps) {
             {event.venue.name} · {event.city}
           </span>
         </div>
-        <a className="ticket-button" href={ticketHref} target={isLoggedIn && !event.offerId ? "_blank" : undefined} rel="noopener noreferrer">
+        <a className="ticket-button" href={ticketHref} target={opensInNewTab ? "_blank" : undefined} rel={opensInNewTab ? "noopener noreferrer" : undefined}>
           <span>{isLoggedIn ? "Buy Tickets" : "Login to Buy Tickets"}</span>
           <span aria-hidden="true">↗</span>
         </a>

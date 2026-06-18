@@ -4,6 +4,7 @@ import { DataState } from "@/components/DataState";
 import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
 import { formatEventDate } from "@/lib/events";
 import { getEventBySlug } from "@/lib/supabase/queries";
+import { isExternalTicketOffer } from "@/lib/tickets";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -21,6 +22,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const isLoggedIn = Boolean(user);
   const goHref = event.offerId ? `/go/${event.offerId}` : event.ticketUrl;
   const ticketHref = isLoggedIn ? goHref : `/login?next=${encodeURIComponent(goHref)}`;
+  const opensInNewTab = isExternalTicketOffer(event.ticketSourceName);
 
   return (
     <article className="detail-layout">
@@ -47,7 +49,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           <br />
           <span className="muted">{event.venue.address}</span>
         </p>
-        <a className="primary-button" href={ticketHref} target={isLoggedIn && !event.offerId ? "_blank" : undefined} rel="noopener noreferrer">
+        <a className="primary-button" href={ticketHref} target={opensInNewTab ? "_blank" : undefined} rel={opensInNewTab ? "noopener noreferrer" : undefined}>
           {isLoggedIn ? "Buy Tickets" : "Login to Buy Tickets"}
         </a>
         {!isLoggedIn ? <p className="muted">Create a free account to continue to ticket purchase.</p> : null}

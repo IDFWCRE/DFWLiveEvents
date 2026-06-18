@@ -19,6 +19,7 @@ type VenueRow = {
 
 type EventOfferRow = {
   id: string;
+  source_name: string | null;
   affiliate_url: string | null;
   source_listing_url: string | null;
   available: boolean;
@@ -99,6 +100,7 @@ function mapEvent(row: EventRow): Event | null {
     description: row.description || "",
     ticketUrl: ticketOffer?.affiliate_url || ticketOffer?.source_listing_url || "#",
     offerId: ticketOffer?.id,
+    ticketSourceName: ticketOffer?.source_name || undefined,
     status: row.status
   };
 }
@@ -125,6 +127,7 @@ const eventSelect = `
   ),
   event_offers (
     id,
+    source_name,
     affiliate_url,
     source_listing_url,
     available
