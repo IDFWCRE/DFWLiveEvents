@@ -35,6 +35,7 @@ export function EventCard({ event, isLoggedIn = false }: EventCardProps) {
         <div className="event-meta">
           <span className="pill">{event.category}</span>
           <span className="pill">{event.city}</span>
+          {event.hasOwnedTickets ? <span className="pill">DFW Tickets Available</span> : null}
         </div>
         <h3 className="event-title">
           <Link href={`/events/${event.slug}`}>{event.name}</Link>

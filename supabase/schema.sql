@@ -190,6 +190,43 @@ create table if not exists seller_profiles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists owned_ticket_listings (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events(id) on delete cascade,
+  title text,
+  description text,
+  quantity_total integer not null default 0,
+  quantity_available integer not null default 0,
+  section text,
+  row_name text,
+  seat_numbers text,
+  price_per_ticket numeric(10, 2) not null,
+  currency text not null default 'USD',
+  delivery_method text not null default 'mobile_transfer',
+  listing_status text not null default 'draft',
+  public_notes text,
+  private_notes text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists owned_ticket_requests (
+  id uuid primary key default gen_random_uuid(),
+  listing_id uuid not null references owned_ticket_listings(id) on delete cascade,
+  event_id uuid not null references events(id) on delete cascade,
+  buyer_user_id uuid references auth.users(id) on delete set null,
+  buyer_email text,
+  buyer_name text,
+  buyer_phone text,
+  quantity_requested integer not null default 1,
+  status text not null default 'pending',
+  buyer_message text,
+  admin_notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table affiliate_clicks add column if not exists user_id uuid references auth.users(id) on delete set null;
 alter table affiliate_clicks add column if not exists user_email text;
 
@@ -209,6 +246,12 @@ create index if not exists idx_user_profiles_reseller_status on user_profiles(re
 create index if not exists idx_seller_profiles_user_id on seller_profiles(user_id);
 create index if not exists idx_seller_profiles_verification_status on seller_profiles(verification_status);
 create index if not exists idx_affiliate_clicks_user_id on affiliate_clicks(user_id);
+create index if not exists idx_owned_ticket_listings_event_id on owned_ticket_listings(event_id);
+create index if not exists idx_owned_ticket_listings_listing_status on owned_ticket_listings(listing_status);
+create index if not exists idx_owned_ticket_requests_listing_id on owned_ticket_requests(listing_id);
+create index if not exists idx_owned_ticket_requests_buyer_user_id on owned_ticket_requests(buyer_user_id);
+create index if not exists idx_owned_ticket_requests_status on owned_ticket_requests(status);
+create index if not exists idx_owned_ticket_requests_created_at on owned_ticket_requests(created_at desc);
 
 do $$
 begin
@@ -302,6 +345,97 @@ begin
   and to_regclass('public.seller_profiles_user_id_key') is null then
     create unique index seller_profiles_user_id_key
     on public.seller_profiles (user_id);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'owned_ticket_listings_quantity_total_check'
+      and conrelid = 'public.owned_ticket_listings'::regclass
+  ) then
+    alter table public.owned_ticket_listings
+    add constraint owned_ticket_listings_quantity_total_check check (quantity_total >= 0);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'owned_ticket_listings_quantity_available_check'
+      and conrelid = 'public.owned_ticket_listings'::regclass
+  ) then
+    alter table public.owned_ticket_listings
+    add constraint owned_ticket_listings_quantity_available_check check (quantity_available >= 0);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'owned_ticket_listings_price_check'
+      and conrelid = 'public.owned_ticket_listings'::regclass
+  ) then
+    alter table public.owned_ticket_listings
+    add constraint owned_ticket_listings_price_check check (price_per_ticket >= 0);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'owned_ticket_listings_delivery_method_check'
+      and conrelid = 'public.owned_ticket_listings'::regclass
+  ) then
+    alter table public.owned_ticket_listings
+    add constraint owned_ticket_listings_delivery_method_check check (delivery_method in ('mobile_transfer', 'pdf', 'will_call', 'physical', 'tbd'));
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'owned_ticket_listings_status_check'
+      and conrelid = 'public.owned_ticket_listings'::regclass
+  ) then
+    alter table public.owned_ticket_listings
+    add constraint owned_ticket_listings_status_check check (listing_status in ('draft', 'active', 'inactive', 'sold_out'));
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'owned_ticket_requests_quantity_check'
+      and conrelid = 'public.owned_ticket_requests'::regclass
+  ) then
+    alter table public.owned_ticket_requests
+    add constraint owned_ticket_requests_quantity_check check (quantity_requested >= 1);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'owned_ticket_requests_status_check'
+      and conrelid = 'public.owned_ticket_requests'::regclass
+  ) then
+    alter table public.owned_ticket_requests
+    add constraint owned_ticket_requests_status_check check (status in ('pending', 'contacted', 'approved', 'rejected', 'cancelled', 'fulfilled'));
   end if;
 end $$;
 
@@ -424,6 +558,14 @@ drop trigger if exists set_seller_profiles_updated_at on seller_profiles;
 create trigger set_seller_profiles_updated_at before update on seller_profiles
 for each row execute function set_updated_at();
 
+drop trigger if exists set_owned_ticket_listings_updated_at on owned_ticket_listings;
+create trigger set_owned_ticket_listings_updated_at before update on owned_ticket_listings
+for each row execute function set_updated_at();
+
+drop trigger if exists set_owned_ticket_requests_updated_at on owned_ticket_requests;
+create trigger set_owned_ticket_requests_updated_at before update on owned_ticket_requests
+for each row execute function set_updated_at();
+
 drop trigger if exists protect_seller_profiles_fields on seller_profiles;
 create trigger protect_seller_profiles_fields before update on seller_profiles
 for each row execute function public.protect_seller_profile_fields();
@@ -444,6 +586,8 @@ alter table source_import_targets enable row level security;
 alter table source_import_runs enable row level security;
 alter table user_profiles enable row level security;
 alter table seller_profiles enable row level security;
+alter table owned_ticket_listings enable row level security;
+alter table owned_ticket_requests enable row level security;
 
 drop policy if exists "Public can read venues" on venues;
 create policy "Public can read venues"
@@ -531,6 +675,24 @@ on seller_profiles for update
 to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
+drop policy if exists "Public can read active owned ticket listings" on owned_ticket_listings;
+create policy "Public can read active owned ticket listings"
+on owned_ticket_listings for select
+to anon, authenticated
+using (listing_status = 'active' and quantity_available > 0);
+
+drop policy if exists "Users can insert own owned ticket requests" on owned_ticket_requests;
+create policy "Users can insert own owned ticket requests"
+on owned_ticket_requests for insert
+to authenticated
+with check (auth.uid() = buyer_user_id);
+
+drop policy if exists "Users can read own owned ticket requests" on owned_ticket_requests;
+create policy "Users can read own owned ticket requests"
+on owned_ticket_requests for select
+to authenticated
+using (auth.uid() = buyer_user_id);
 
 -- No public update/delete policies are defined. Public writes remain blocked by RLS.
 -- source_import_targets intentionally has no public read/write policy.

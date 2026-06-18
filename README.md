@@ -81,6 +81,8 @@ The schema includes:
 - `source_import_runs`
 - `user_profiles`
 - `seller_profiles`
+- `owned_ticket_listings`
+- `owned_ticket_requests`
 
 RLS is enabled. Public anon users can read published events, venues, performers, active ticket sources, and available event offers. Public users can insert affiliate clicks for future tracking. Admin write policies are intentionally left as commented placeholders.
 
@@ -149,6 +151,49 @@ Flow:
 5. `/go/[offerId]` records `affiliate_clicks` and redirects to `affiliate_url` or `source_listing_url`.
 
 `affiliate_clicks` now supports `user_id` and `user_email` for logged-in redirect tracking.
+
+## Owned Ticket Inventory
+
+Phase 1G adds DFW Live Events-owned ticket inventory without payments or automated fulfillment.
+
+Owned inventory uses separate tables:
+
+- `owned_ticket_listings`: tickets DFW Live Events/admin owns and wants to make visible.
+- `owned_ticket_requests`: buyer requests for those listings.
+
+External affiliate/source offers remain in `event_offers` and continue through `/go/[offerId]`. Owned tickets do not use `/go`; they route internally to:
+
+```text
+/tickets
+/tickets/[listingId]
+```
+
+Buyer flow:
+
+1. Buyer browses public events or `/tickets`.
+2. Active DFW-owned listings show as “DFW Live Events Tickets.”
+3. Buyer opens `/tickets/[listingId]` in the same tab.
+4. Logged-out buyers are sent to `/login?next=/tickets/[listingId]`.
+5. Logged-in buyers submit a request with quantity, phone, and optional message.
+6. The request is stored as `pending`.
+7. Admin manually contacts and fulfills the request outside the app.
+
+Admin workflow:
+
+1. Open `/admin`.
+2. Enter `ADMIN_IMPORT_TOKEN`.
+3. Refresh Owned Tickets.
+4. Search/select an existing event.
+5. Add listing details: quantity, section, row, seats, price, delivery method, notes, and status.
+6. Set status to `active` to show it publicly.
+7. Review Owned Ticket Requests and update status: `pending`, `contacted`, `approved`, `rejected`, `cancelled`, or `fulfilled`.
+
+Listings are visible publicly only when:
+
+- `listing_status = active`
+- `quantity_available > 0`
+
+No payments, Stripe checkout, payouts, seller listing tools, or ticket transfer automation are included yet. Owned ticket requests are manual follow-up records.
 
 ## Rolling Import Window
 
@@ -334,6 +379,7 @@ Admin sections:
 - Import History: latest 50 `source_import_runs` rows.
 - Environment Status: yes/no status only, never secret values.
 - Reseller Applications: approve, reject, or suspend reseller requests.
+- Owned Tickets: manage DFW-owned ticket listings and purchase requests.
 
 Protected admin import routes:
 
@@ -463,6 +509,7 @@ That route records an `affiliate_clicks` row with the offer id, event id, timest
 
 Phase 1D.5 uses Supabase seed data plus cached Ticketmaster and Eventbrite imports inside a rolling 365-day default window.
 Phase 1F gates outbound Buy Tickets redirects behind Supabase Auth and adds buyer/reseller/admin profiles.
+Phase 1G adds DFW-owned ticket listings and manual purchase requests.
 
 Not included yet:
 

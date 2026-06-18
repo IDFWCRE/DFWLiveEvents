@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHero } from "@/components/PageHero";
 import { logoutAction } from "@/lib/auth/actions";
 import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
+import { formatTicketPrice, getOwnedTicketRequestsForUser } from "@/lib/owned-tickets";
 
 export default async function AccountPage() {
   const { user, profile, sellerProfile } = await getCurrentUserWithProfile();
@@ -13,6 +14,7 @@ export default async function AccountPage() {
 
   const role = profile?.role || "buyer";
   const resellerStatus = profile?.reseller_status || "none";
+  const { data: ticketRequests } = await getOwnedTicketRequestsForUser(user.id);
 
   return (
     <>
@@ -34,6 +36,37 @@ export default async function AccountPage() {
           <div className="env-row"><span>Reseller status</span><strong>{resellerStatus}</strong></div>
         </div>
         {role === "admin" ? <Link className="primary-button" href="/admin">Open Admin Dashboard</Link> : null}
+        <div className="empty-state">
+          <h3>My Ticket Requests</h3>
+          {ticketRequests.length ? (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Qty</th>
+                    <th>Status</th>
+                    <th>Price</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ticketRequests.map((request) => (
+                    <tr key={request.id}>
+                      <td>{request.event?.name || "Event"}</td>
+                      <td>{request.quantityRequested}</td>
+                      <td><span className={`status-pill status-${request.status}`}>{request.status}</span></td>
+                      <td>{request.listing ? formatTicketPrice(request.listing.pricePerTicket, request.listing.currency) : "-"}</td>
+                      <td>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(request.createdAt))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="muted">No ticket requests yet.</p>
+          )}
+        </div>
         {resellerStatus === "none" ? (
           <div className="empty-state">
             <h3>Buyer Dashboard</h3>

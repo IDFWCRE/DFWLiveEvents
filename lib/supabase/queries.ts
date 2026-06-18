@@ -37,6 +37,7 @@ type EventRow = {
   status: "draft" | "published" | "cancelled";
   venues: VenueRow | VenueRow[] | null;
   event_offers?: EventOfferRow[] | null;
+  owned_ticket_listings?: Array<{ id: string }> | null;
 };
 
 const fallbackImage =
@@ -101,6 +102,7 @@ function mapEvent(row: EventRow): Event | null {
     ticketUrl: ticketOffer?.affiliate_url || ticketOffer?.source_listing_url || "#",
     offerId: ticketOffer?.id,
     ticketSourceName: ticketOffer?.source_name || undefined,
+    hasOwnedTickets: Boolean(row.owned_ticket_listings?.length),
     status: row.status
   };
 }
@@ -131,6 +133,9 @@ const eventSelect = `
     affiliate_url,
     source_listing_url,
     available
+  ),
+  owned_ticket_listings (
+    id
   )
 `;
 

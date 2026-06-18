@@ -20,6 +20,7 @@ export async function SiteHeader() {
         </Link>
         <nav className="main-nav" aria-label="Primary navigation">
           <Link href="/events">Events</Link>
+          <Link href="/tickets">Tickets</Link>
           <Link href="/venues">Venues</Link>
           <Link href="/about">About Us</Link>
           <Link href="/faqs">FAQs</Link>
