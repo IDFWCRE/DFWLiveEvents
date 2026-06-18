@@ -6,7 +6,7 @@ async function main() {
   let summary;
 
   try {
-    summary = await importEventbriteEvents({ log: console.log });
+    summary = await importEventbriteEvents({ log: console.log, runType: "local", triggeredBy: "local_script" });
   } catch (error) {
     summary = {
       fetchedCount: 0,

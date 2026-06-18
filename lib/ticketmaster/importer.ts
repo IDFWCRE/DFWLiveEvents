@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { runWithImportHistory, type ImportRunType } from "@/lib/import/runs";
 import { fetchTicketmasterEvents } from "./client";
 import { normalizeTicketmasterEvent, type NormalizedTicketmasterEvent } from "./normalize";
 
@@ -12,6 +13,8 @@ export type TicketmasterImportSummary = {
 
 export type TicketmasterImportOptions = {
   log?: (message: string) => void;
+  runType?: ImportRunType;
+  triggeredBy?: string;
 };
 
 type SupabaseAdmin = ReturnType<typeof createSupabaseAdminClient>;
@@ -173,7 +176,7 @@ function dedupeNormalizedEvents(events: NormalizedTicketmasterEvent[]) {
   return [...new Map(events.map((event) => [event.externalEventId, event])).values()];
 }
 
-export async function importTicketmasterEvents(options: TicketmasterImportOptions = {}): Promise<TicketmasterImportSummary> {
+async function importTicketmasterEventsInternal(options: TicketmasterImportOptions = {}): Promise<TicketmasterImportSummary> {
   options.log?.("[ticketmaster] Import started");
   const fetched = await fetchTicketmasterEvents({ log: options.log });
   const errors = [...fetched.errors];
@@ -232,4 +235,17 @@ export async function importTicketmasterEvents(options: TicketmasterImportOption
   );
 
   return summary;
+}
+
+export async function importTicketmasterEvents(options: TicketmasterImportOptions = {}): Promise<TicketmasterImportSummary> {
+  return runWithImportHistory(
+    options.runType
+      ? {
+          sourceName: "ticketmaster",
+          runType: options.runType,
+          triggeredBy: options.triggeredBy
+        }
+      : undefined,
+    () => importTicketmasterEventsInternal(options)
+  );
 }

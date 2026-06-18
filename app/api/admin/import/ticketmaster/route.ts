@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
+import { isAdminImportTokenAuthorized, unauthorizedJson } from "@/lib/admin/auth";
 import { importTicketmasterEvents } from "@/lib/ticketmaster/importer";
 
 export async function POST(request: Request) {
-  const configuredToken = process.env.ADMIN_IMPORT_TOKEN;
-  const requestToken = request.headers.get("x-admin-import-token");
-
-  if (!configuredToken || requestToken !== configuredToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdminImportTokenAuthorized(request)) {
+    return unauthorizedJson();
   }
 
   try {
-    const summary = await importTicketmasterEvents();
+    const summary = await importTicketmasterEvents({ runType: "manual_api", triggeredBy: "admin_api" });
     return NextResponse.json(summary);
   } catch (error) {
     return NextResponse.json(

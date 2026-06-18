@@ -145,6 +145,26 @@ create table if not exists source_import_targets (
   constraint unique_source_import_target unique (source_name, target_type, target_value)
 );
 
+create table if not exists source_import_runs (
+  id uuid primary key default gen_random_uuid(),
+  source_name text not null,
+  run_type text not null,
+  status text not null,
+  import_window_start timestamptz,
+  import_window_end timestamptz,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  fetched_count integer not null default 0,
+  inserted_count integer not null default 0,
+  updated_count integer not null default 0,
+  skipped_count integer not null default 0,
+  error_count integer not null default 0,
+  error_message text,
+  summary jsonb,
+  triggered_by text,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists idx_events_status_date on events(status, event_date, event_time);
 create index if not exists idx_events_category on events(category);
 create index if not exists idx_events_venue_id on events(venue_id);
@@ -153,13 +173,50 @@ create index if not exists idx_event_offers_event_available on event_offers(even
 create index if not exists idx_affiliate_clicks_clicked_at on affiliate_clicks(clicked_at);
 create index if not exists idx_source_import_targets_active_source on source_import_targets(active, source_name);
 create index if not exists idx_source_import_targets_type on source_import_targets(source_name, target_type);
+create index if not exists idx_source_import_runs_source_name on source_import_runs(source_name);
+create index if not exists idx_source_import_runs_status on source_import_runs(status);
+create index if not exists idx_source_import_runs_started_at on source_import_runs(started_at desc);
 
 do $$
 begin
-  alter table event_offers
-  add constraint unique_event_offer_source unique (event_id, source_name);
-exception
-  when duplicate_object then null;
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'unique_external_event'
+      and conrelid = 'public.events'::regclass
+  )
+  and to_regclass('public.unique_external_event') is null then
+    create unique index unique_external_event
+    on public.events (external_source, external_event_id);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'unique_event_offer_source'
+      and conrelid = 'public.event_offers'::regclass
+  )
+  and to_regclass('public.unique_event_offer_source') is null then
+    create unique index unique_event_offer_source
+    on public.event_offers (event_id, source_name);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'unique_source_import_target'
+      and conrelid = 'public.source_import_targets'::regclass
+  )
+  and to_regclass('public.unique_source_import_target') is null then
+    create unique index unique_source_import_target
+    on public.source_import_targets (source_name, target_type, target_value);
+  end if;
 end $$;
 
 drop trigger if exists set_venues_updated_at on venues;
@@ -199,6 +256,7 @@ alter table event_offers enable row level security;
 alter table affiliate_clicks enable row level security;
 alter table admin_settings enable row level security;
 alter table source_import_targets enable row level security;
+alter table source_import_runs enable row level security;
 
 drop policy if exists "Public can read venues" on venues;
 create policy "Public can read venues"
@@ -257,6 +315,7 @@ with check (true);
 
 -- No public update/delete policies are defined. Public writes remain blocked by RLS.
 -- source_import_targets intentionally has no public read/write policy.
+-- source_import_runs intentionally has no public read/write policy.
 -- It is managed through service-role/server-side import tooling for now.
 -- Future admin policies should be scoped to authenticated admin roles, for example:
 -- create policy "Admins can manage events" on events for all

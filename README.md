@@ -77,10 +77,12 @@ The schema includes:
 - `affiliate_clicks`
 - `admin_settings`
 - `source_import_targets`
+- `source_import_runs`
 
 RLS is enabled. Public anon users can read published events, venues, performers, active ticket sources, and available event offers. Public users can insert affiliate clicks for future tracking. Admin write policies are intentionally left as commented placeholders.
 
 `source_import_targets` is service-role/server-only for now. Public users cannot read or write source targets.
+`source_import_runs` is also service-role/server-only. It is read through protected admin APIs only.
 
 ## Rolling Import Window
 
@@ -169,6 +171,7 @@ The route returns:
 ```
 
 Ticketmaster API keys and Supabase service role keys are used only server-side.
+Each local or protected Ticketmaster import writes a `source_import_runs` row with counts, status, import window, and summary JSON.
 
 ## Eventbrite Import
 
@@ -245,10 +248,48 @@ curl -X POST https://your-vercel-domain.vercel.app/api/admin/import/eventbrite \
 ```
 
 Eventbrite private tokens and Supabase service role keys are used only server-side.
+Each local or protected Eventbrite import writes a `source_import_runs` row with counts, status, import window, and summary JSON.
+
+## Admin Dashboard
+
+The `/admin` page is intentionally reachable manually but does not expose secrets. Write/import actions require `ADMIN_IMPORT_TOKEN`.
+
+Admin token behavior:
+
+- Paste `ADMIN_IMPORT_TOKEN` into the Admin Token field.
+- The token is stored only in `sessionStorage`.
+- The token is sent only as the `x-admin-import-token` header to protected admin API routes.
+- Use Clear token to remove it from the current browser session.
+
+Admin sections:
+
+- Import Controls: run Ticketmaster, Eventbrite, or all imports.
+- Source Targets: list, add, edit, deactivate/reactivate, and delete import targets.
+- Import History: latest 50 `source_import_runs` rows.
+- Environment Status: yes/no status only, never secret values.
+
+Protected admin import routes:
+
+```text
+POST /api/admin/import/ticketmaster
+POST /api/admin/import/eventbrite
+POST /api/admin/import/all
+GET  /api/admin/import-runs
+GET  /api/admin/source-targets
+POST /api/admin/source-targets
+PATCH /api/admin/source-targets/[id]
+DELETE /api/admin/source-targets/[id]
+```
+
+All routes above require:
+
+```text
+x-admin-import-token: your-admin-import-token
+```
 
 ## Source Import Targets
 
-Eventbrite imports can be configured with environment variables or rows in `source_import_targets`.
+Eventbrite imports can be configured with environment variables or rows in `source_import_targets`. The `/admin` page is the easiest way to manage rows once `ADMIN_IMPORT_TOKEN` is available.
 
 For Eventbrite targets:
 
@@ -258,6 +299,27 @@ For Eventbrite targets:
 - `active = true`
 
 Ticketmaster city targets are seeded for future target-driven imports, but the Ticketmaster importer still uses the built-in DFW city list.
+
+For Ticketmaster city targets:
+
+- `source_name = ticketmaster`
+- `target_type = city`
+- `target_value = Dallas`, `Fort Worth`, etc.
+
+Duplicate targets are prevented with a unique constraint on `source_name`, `target_type`, and `target_value`.
+
+## Import History
+
+Every local script, protected manual API import, and cron import writes to `source_import_runs`.
+
+Statuses:
+
+- `running`: import has started.
+- `success`: completed without errors.
+- `partial_success`: imported or processed some data but one or more source/API/upsert errors occurred.
+- `failed`: no useful work completed or the importer threw before producing a summary.
+
+The admin dashboard shows the latest 50 runs. The raw summary JSON is stored in Supabase for deeper troubleshooting.
 
 ## Daily Scheduled Import
 
@@ -285,6 +347,18 @@ Manual test with admin import token:
 curl https://your-vercel-domain.vercel.app/api/cron/import-events \
   -H "x-admin-import-token: $ADMIN_IMPORT_TOKEN"
 ```
+
+If Ticketmaster succeeds and Eventbrite fails, the cron response returns JSON with `status: "partial_success"` and includes source-specific error details. The route never redirects.
+
+## Troubleshooting Imports
+
+- Confirm `SUPABASE_SERVICE_ROLE_KEY` is set in the environment running the importer.
+- Confirm source API credentials are present: `TICKETMASTER_API_KEY` and/or `EVENTBRITE_PRIVATE_TOKEN`.
+- For Eventbrite, confirm at least one organization, venue, or event target exists in env vars or `source_import_targets`.
+- Check `/admin` Import History for `partial_success` or `failed` rows.
+- Re-run `supabase/schema.sql`; it is designed to be idempotent.
+- Re-run `supabase/seed.sql`; seed inserts use `ON CONFLICT` to avoid duplicate seed rows.
+- No scraping is used or supported. Imports are API-only.
 
 ## Outbound Ticket Tracking
 

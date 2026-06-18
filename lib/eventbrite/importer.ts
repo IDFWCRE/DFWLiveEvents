@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getImportWindow, isDateInImportWindow } from "@/lib/import/window";
+import { runWithImportHistory, type ImportRunType } from "@/lib/import/runs";
 import { getActiveSourceImportTargets, type SourceImportTarget } from "@/lib/import/source-targets";
 import { fetchEventbriteEvents } from "./client";
 import { normalizeEventbriteEvent, type NormalizedEventbriteEvent } from "./normalize";
@@ -14,6 +15,8 @@ export type EventbriteImportSummary = {
 
 export type EventbriteImportOptions = {
   log?: (message: string) => void;
+  runType?: ImportRunType;
+  triggeredBy?: string;
 };
 
 type SupabaseAdmin = ReturnType<typeof createSupabaseAdminClient>;
@@ -175,7 +178,7 @@ function dedupeNormalizedEvents(events: NormalizedEventbriteEvent[]) {
   return [...new Map(events.map((event) => [event.externalEventId, event])).values()];
 }
 
-export async function importEventbriteEvents(options: EventbriteImportOptions = {}): Promise<EventbriteImportSummary> {
+async function importEventbriteEventsInternal(options: EventbriteImportOptions = {}): Promise<EventbriteImportSummary> {
   options.log?.("[eventbrite] Import started");
   const importWindow = getImportWindow();
   options.log?.(`[eventbrite] Import window: ${importWindow.label} (${importWindow.startIso} to ${importWindow.endIso})`);
@@ -257,4 +260,17 @@ export async function importEventbriteEvents(options: EventbriteImportOptions = 
   );
 
   return summary;
+}
+
+export async function importEventbriteEvents(options: EventbriteImportOptions = {}): Promise<EventbriteImportSummary> {
+  return runWithImportHistory(
+    options.runType
+      ? {
+          sourceName: "eventbrite",
+          runType: options.runType,
+          triggeredBy: options.triggeredBy
+        }
+      : undefined,
+    () => importEventbriteEventsInternal(options)
+  );
 }

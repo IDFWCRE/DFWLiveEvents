@@ -525,6 +525,128 @@ h1 {
   color: var(--text);
 }
 
+.admin-inline,
+.admin-actions,
+.admin-section-head,
+.admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-section-head {
+  justify-content: space-between;
+}
+
+.admin-input {
+  min-height: 46px;
+  padding: 10px 13px;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  outline: none;
+  background: var(--bg);
+}
+
+.admin-input:focus {
+  border-color: rgba(255, 107, 26, 0.65);
+  box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.12);
+}
+
+.admin-inline .admin-input {
+  flex: 1 1 280px;
+}
+
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-wide {
+  grid-column: span 2;
+}
+
+.admin-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 12px 13px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table th {
+  color: var(--orange-light);
+  background: rgba(255, 107, 26, 0.06);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.status-pill {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.status-success {
+  color: #83f5b0;
+  background: rgba(63, 185, 110, 0.13);
+}
+
+.status-partial_success {
+  color: var(--orange-light);
+  background: rgba(255, 107, 26, 0.12);
+}
+
+.status-failed {
+  color: #ff8c8c;
+  background: rgba(255, 83, 83, 0.13);
+}
+
+.status-running {
+  color: #9ecbff;
+  background: rgba(82, 151, 255, 0.13);
+}
+
+.primary-button:disabled,
+.filter-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
 footer {
   border-top: 1px solid var(--border);
   color: var(--muted);
@@ -604,6 +726,14 @@ footer {
 
   .filter-button {
     width: 100%;
+  }
+
+  .admin-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-wide {
+    grid-column: auto;
   }
 
   .event-grid,
