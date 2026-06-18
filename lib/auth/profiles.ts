@@ -82,6 +82,30 @@ export async function getCurrentUserWithProfile() {
 }
 
 export async function currentUserIsAdmin() {
-  const { profile } = await getCurrentUserWithProfile();
-  return profile?.role === "admin";
+  const { user, profile } = await getCurrentUserWithProfile();
+  return Boolean(user && (profile?.role === "admin" || isConfiguredAdminEmail(user.email)));
+}
+
+export async function requireAdminUser() {
+  const { user, profile } = await getCurrentUserWithProfile();
+
+  if (!user) {
+    return { user: null, profile: null, isAdmin: false, reason: "not_authenticated" as const };
+  }
+
+  if (isConfiguredAdminEmail(user.email)) {
+    await ensureConfiguredAdminProfile(user.id, user.email);
+    return {
+      user,
+      profile: profile ? { ...profile, role: "admin" as const } : null,
+      isAdmin: true,
+      reason: null
+    };
+  }
+
+  if (profile?.role === "admin") {
+    return { user, profile, isAdmin: true, reason: null };
+  }
+
+  return { user, profile, isAdmin: false, reason: "not_admin" as const };
 }

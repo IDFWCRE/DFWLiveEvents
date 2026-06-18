@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { PageHero } from "@/components/PageHero";
-import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
+import { requireAdminUser } from "@/lib/auth/profiles";
 import { getImportWindow } from "@/lib/import/window";
 
 function envStatus(name: string) {
@@ -8,7 +9,16 @@ function envStatus(name: string) {
 }
 
 export default async function AdminPage() {
-  const { user, profile } = await getCurrentUserWithProfile();
+  const admin = await requireAdminUser();
+
+  if (!admin.user) {
+    redirect("/adminlogin?next=/admin");
+  }
+
+  if (!admin.isAdmin) {
+    redirect("/login?message=This%20account%20does%20not%20have%20admin%20access.");
+  }
+
   const importWindow = getImportWindow();
   const envRows: Array<[string, string]> = [
     ["NEXT_PUBLIC_SUPABASE_URL", envStatus("NEXT_PUBLIC_SUPABASE_URL")],
@@ -32,19 +42,18 @@ export default async function AdminPage() {
         }
         copy="Operational dashboard for protected imports, source targets, and import history. Secrets stay server-side."
       />
-      {profile?.role === "admin" ? (
-        <section className="detail-panel stack" style={{ marginBottom: 28 }}>
-          <h2 className="section-title">Logged-In Admin</h2>
-          <p className="muted">
-            Signed in as {user?.email}. Import controls still accept `ADMIN_IMPORT_TOKEN`; reseller APIs also allow this
-            admin role.
-          </p>
-        </section>
-      ) : null}
+      <section className="detail-panel stack" style={{ marginBottom: 28 }}>
+        <h2 className="section-title">Logged-In Admin</h2>
+        <p className="muted">
+          Signed in as {admin.user.email}. Dashboard actions use your admin session. `ADMIN_IMPORT_TOKEN` still works for
+          curl/API testing.
+        </p>
+      </section>
       <AdminDashboard
         envRows={envRows}
         importWindowLabel={importWindow.label}
         importWindowRange={`${importWindow.startDate} through ${importWindow.endDate}`}
+        isAdminSession
       />
     </>
   );

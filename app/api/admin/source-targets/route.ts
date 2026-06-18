@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { isAdminImportTokenAuthorized, unauthorizedJson } from "@/lib/admin/auth";
+import { isAdminTokenOrRoleAuthorized, unauthorizedJson } from "@/lib/admin/auth";
 import { validateSourceTargetPayload } from "@/lib/admin/source-targets";
 import { getSourceImportTargets, sourceTargetSelect } from "@/lib/import/source-targets";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
-  if (!isAdminImportTokenAuthorized(request)) {
+  if (!(await isAdminTokenOrRoleAuthorized(request))) {
     return unauthorizedJson();
   }
 
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isAdminImportTokenAuthorized(request)) {
+  if (!(await isAdminTokenOrRoleAuthorized(request))) {
     return unauthorizedJson();
   }
 

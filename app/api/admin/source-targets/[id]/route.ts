@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAdminImportTokenAuthorized, unauthorizedJson } from "@/lib/admin/auth";
+import { isAdminTokenOrRoleAuthorized, unauthorizedJson } from "@/lib/admin/auth";
 import { validateSourceTargetPayload } from "@/lib/admin/source-targets";
 import { sourceTargetSelect } from "@/lib/import/source-targets";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -9,7 +9,7 @@ type RouteContext = {
 };
 
 export async function PATCH(request: Request, context: RouteContext) {
-  if (!isAdminImportTokenAuthorized(request)) {
+  if (!(await isAdminTokenOrRoleAuthorized(request))) {
     return unauthorizedJson();
   }
 
@@ -36,7 +36,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
-  if (!isAdminImportTokenAuthorized(request)) {
+  if (!(await isAdminTokenOrRoleAuthorized(request))) {
     return unauthorizedJson();
   }
 

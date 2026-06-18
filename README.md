@@ -104,11 +104,14 @@ Auth routes:
 
 - `/login`
 - `/register`
+- `/adminlogin`
 - `/auth/callback`
 - `/account`
 - `/account/reseller`
 
-`/login` and `/register` support a `next` query param, such as:
+Buyers and resellers use `/login` and `/register`. Admins use `/adminlogin`.
+
+`/login`, `/register`, and `/adminlogin` support a `next` query param, such as:
 
 ```text
 /login?next=/go/[offerId]
@@ -137,6 +140,16 @@ Reseller statuses:
 Seller applications live in `seller_profiles`. Registration with account type `Reseller` creates a pending reseller profile when Supabase creates the auth user. Users can also apply from `/account/reseller`.
 
 Normal authenticated users can read/update their own profile rows, but schema triggers preserve protected fields like `role`, `reseller_status`, `user_id`, and `verification_status`. Service-role server routes handle approval actions.
+
+`ADMIN_EMAILS` does not create accounts. Admin users must already exist, either by registering with one of those email addresses or by being created manually in Supabase Authentication → Users.
+
+Example:
+
+```bash
+ADMIN_EMAILS=admin@idfw.net,cameron@idfw.net
+```
+
+When an existing signed-in user email matches `ADMIN_EMAILS`, the server safely promotes `user_profiles.role` to `admin`.
 
 ## Gated Buy Tickets
 
@@ -361,14 +374,21 @@ curl -X POST https://your-vercel-domain.vercel.app/api/admin/import/eventbrite \
 Eventbrite private tokens and Supabase service role keys are used only server-side.
 Each local or protected Eventbrite import writes a `source_import_runs` row with counts, status, import window, and summary JSON.
 
-## Admin Dashboard
+## Admin Login And Dashboard
 
-The `/admin` page is intentionally reachable manually but does not expose secrets. Write/import actions require `ADMIN_IMPORT_TOKEN`.
+Admins log in at:
+
+```text
+/adminlogin
+```
+
+The `/admin` page is protected server-side. Anonymous users are redirected to `/adminlogin?next=/admin`. Logged-in non-admin users are denied and redirected away. Hiding navigation links is not used as the security boundary.
 
 Admin token behavior:
 
-- Paste `ADMIN_IMPORT_TOKEN` into the Admin Token field.
-- The token is stored only in `sessionStorage`.
+- Logged-in admins can use dashboard actions without pasting `ADMIN_IMPORT_TOKEN`.
+- `ADMIN_IMPORT_TOKEN` still works for curl/API testing and protected import operations.
+- If pasted into the Admin Token field, the token is stored only in `sessionStorage`.
 - The token is sent only as the `x-admin-import-token` header to protected admin API routes.
 - Use Clear token to remove it from the current browser session.
 
@@ -394,7 +414,7 @@ PATCH /api/admin/source-targets/[id]
 DELETE /api/admin/source-targets/[id]
 ```
 
-All routes above require:
+All routes above require either a logged-in admin session or:
 
 ```text
 x-admin-import-token: your-admin-import-token
@@ -402,7 +422,7 @@ x-admin-import-token: your-admin-import-token
 
 ## Source Import Targets
 
-Eventbrite imports can be configured with environment variables or rows in `source_import_targets`. The `/admin` page is the easiest way to manage rows once `ADMIN_IMPORT_TOKEN` is available.
+Eventbrite imports can be configured with environment variables or rows in `source_import_targets`. The `/admin` page is the easiest way to manage rows once an admin is signed in or `ADMIN_IMPORT_TOKEN` is available.
 
 For Eventbrite targets:
 

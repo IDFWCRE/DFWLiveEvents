@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { isAdminImportTokenAuthorized, unauthorizedJson } from "@/lib/admin/auth";
+import { isAdminTokenOrRoleAuthorized, unauthorizedJson } from "@/lib/admin/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
-  if (!isAdminImportTokenAuthorized(request)) {
+  if (!(await isAdminTokenOrRoleAuthorized(request))) {
     return unauthorizedJson();
   }
 

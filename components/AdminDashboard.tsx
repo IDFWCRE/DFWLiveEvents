@@ -156,11 +156,13 @@ function duration(startedAt: string, finishedAt: string | null) {
 export function AdminDashboard({
   envRows,
   importWindowLabel,
-  importWindowRange
+  importWindowRange,
+  isAdminSession = false
 }: {
   envRows: EnvRow[];
   importWindowLabel: string;
   importWindowRange: string;
+  isAdminSession?: boolean;
 }) {
   const [token, setToken] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -176,7 +178,7 @@ export function AdminDashboard({
   const [eventSearch, setEventSearch] = useState("");
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
-  const hasToken = token.trim().length > 0;
+  const hasAdminAccess = isAdminSession || token.trim().length > 0;
   const authHeaders = useMemo(() => ({ "x-admin-import-token": token.trim() }), [token]);
 
   useEffect(() => {
@@ -209,7 +211,7 @@ export function AdminDashboard({
   }
 
   async function refreshTargets() {
-    if (!hasToken) return setStatus("Add the admin token before loading targets.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before loading targets.");
     setLoadingAction("targets");
     try {
       const json = await fetchJson("/api/admin/source-targets");
@@ -223,7 +225,7 @@ export function AdminDashboard({
   }
 
   async function refreshRuns() {
-    if (!hasToken) return setStatus("Add the admin token before loading import history.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before loading import history.");
     setLoadingAction("history");
     try {
       const json = await fetchJson("/api/admin/import-runs");
@@ -237,7 +239,7 @@ export function AdminDashboard({
   }
 
   async function refreshResellers() {
-    if (!hasToken) return setStatus("Add the admin token before loading reseller applications.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before loading reseller applications.");
     setLoadingAction("resellers");
     try {
       const json = await fetchJson("/api/admin/resellers");
@@ -251,7 +253,7 @@ export function AdminDashboard({
   }
 
   async function refreshOwnedInventory() {
-    if (!hasToken) return setStatus("Add the admin token before loading owned tickets.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before loading owned tickets.");
     setLoadingAction("owned");
     try {
       const [eventsJson, listingsJson, requestsJson] = await Promise.all([
@@ -271,7 +273,7 @@ export function AdminDashboard({
   }
 
   async function updateReseller(id: string, action: "approve" | "reject" | "suspend") {
-    if (!hasToken) return setStatus("Add the admin token before updating reseller applications.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before updating reseller applications.");
     setLoadingAction(id);
     try {
       await fetchJson(`/api/admin/resellers/${id}`, {
@@ -288,7 +290,7 @@ export function AdminDashboard({
   }
 
   async function runImport(kind: "ticketmaster" | "eventbrite" | "all") {
-    if (!hasToken) return setStatus("Add the admin token before running imports.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before running imports.");
     setLoadingAction(kind);
     setImportResult(null);
     try {
@@ -305,7 +307,7 @@ export function AdminDashboard({
 
   async function submitTarget(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!hasToken) return setStatus("Add the admin token before saving targets.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before saving targets.");
     setLoadingAction("save-target");
     try {
       const path = form.id ? `/api/admin/source-targets/${form.id}` : "/api/admin/source-targets";
@@ -326,7 +328,7 @@ export function AdminDashboard({
 
   async function submitOwnedListing(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!hasToken) return setStatus("Add the admin token before saving owned ticket listings.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before saving owned ticket listings.");
     setLoadingAction("save-owned");
     try {
       const path = ownedForm.id ? `/api/admin/owned-tickets/${ownedForm.id}` : "/api/admin/owned-tickets";
@@ -346,7 +348,7 @@ export function AdminDashboard({
   }
 
   async function updateOwnedListing(id: string, updates: Record<string, unknown>) {
-    if (!hasToken) return setStatus("Add the admin token before editing owned ticket listings.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before editing owned ticket listings.");
     setLoadingAction(id);
     try {
       await fetchJson(`/api/admin/owned-tickets/${id}`, {
@@ -363,7 +365,7 @@ export function AdminDashboard({
   }
 
   async function deleteOwnedListing(id: string) {
-    if (!hasToken) return setStatus("Add the admin token before deleting owned ticket listings.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before deleting owned ticket listings.");
     setLoadingAction(id);
     try {
       await fetchJson(`/api/admin/owned-tickets/${id}`, { method: "DELETE" });
@@ -377,7 +379,7 @@ export function AdminDashboard({
   }
 
   async function updateOwnedRequest(id: string, status: string, adminNotes?: string | null) {
-    if (!hasToken) return setStatus("Add the admin token before editing owned ticket requests.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before editing owned ticket requests.");
     setLoadingAction(id);
     try {
       await fetchJson(`/api/admin/owned-ticket-requests/${id}`, {
@@ -394,7 +396,7 @@ export function AdminDashboard({
   }
 
   async function updateTarget(target: SourceTarget, updates: Partial<SourceTarget>) {
-    if (!hasToken) return setStatus("Add the admin token before editing targets.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before editing targets.");
     setLoadingAction(target.id);
     try {
       await fetchJson(`/api/admin/source-targets/${target.id}`, {
@@ -411,7 +413,7 @@ export function AdminDashboard({
   }
 
   async function deleteTarget(id: string) {
-    if (!hasToken) return setStatus("Add the admin token before deleting targets.");
+    if (!hasAdminAccess) return setStatus("Admin session or admin token required before deleting targets.");
     setLoadingAction(id);
     try {
       await fetchJson(`/api/admin/source-targets/${id}`, { method: "DELETE" });
@@ -468,7 +470,11 @@ export function AdminDashboard({
     <div className="stack">
       <section className="detail-panel stack">
         <h2 className="section-title">Admin Token</h2>
-        <p className="muted">Stored only in sessionStorage for this browser tab.</p>
+        <p className="muted">
+          {isAdminSession
+            ? "You are signed in as an admin. Token is optional for API/curl testing."
+            : "Stored only in sessionStorage for this browser tab."}
+        </p>
         <div className="admin-inline">
           <input
             className="admin-input"

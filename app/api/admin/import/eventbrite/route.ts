@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { isAdminImportTokenAuthorized, unauthorizedJson } from "@/lib/admin/auth";
+import { isAdminTokenOrRoleAuthorized, unauthorizedJson } from "@/lib/admin/auth";
 import { importEventbriteEvents } from "@/lib/eventbrite/importer";
 
 export async function POST(request: Request) {
-  if (!isAdminImportTokenAuthorized(request)) {
+  if (!(await isAdminTokenOrRoleAuthorized(request))) {
     return unauthorizedJson();
   }
 

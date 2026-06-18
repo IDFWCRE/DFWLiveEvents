@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireAdminUser } from "@/lib/auth/profiles";
 
 function safeNext(value: FormDataEntryValue | string | null) {
   const next = String(value || "").trim();
@@ -22,6 +23,26 @@ export async function loginAction(formData: FormData) {
 
   if (error) {
     redirect(`/login?error=${encodedMessage(error.message)}&next=${encodeURIComponent(next)}`);
+  }
+
+  redirect(next);
+}
+
+export async function adminLoginAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  const next = safeNext(formData.get("next"));
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    redirect(`/adminlogin?error=${encodedMessage(error.message)}&next=${encodeURIComponent(next)}`);
+  }
+
+  const admin = await requireAdminUser();
+  if (!admin.isAdmin) {
+    await supabase.auth.signOut();
+    redirect(`/adminlogin?error=${encodedMessage("This account does not have admin access.")}&next=${encodeURIComponent(next)}`);
   }
 
   redirect(next);

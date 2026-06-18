@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { isAdminImportTokenAuthorized, unauthorizedJson } from "@/lib/admin/auth";
+import { isAdminTokenOrRoleAuthorized, unauthorizedJson } from "@/lib/admin/auth";
 import { importAllSources } from "@/lib/import/all";
 
 export async function POST(request: Request) {
-  if (!isAdminImportTokenAuthorized(request)) {
+  if (!(await isAdminTokenOrRoleAuthorized(request))) {
     return unauthorizedJson();
   }
 
