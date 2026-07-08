@@ -22,7 +22,7 @@ export default async function HomePage() {
       {error ? (
         <DataState title="Supabase setup needed" message={error} />
       ) : (
-        <EventDirectory events={events} isLoggedIn={Boolean(user)} mode="link" showCityFilter={false} title="Featured Events" />
+        <EventDirectory events={events} isLoggedIn={Boolean(user)} mode="link" title="Featured Events" />
       )}
     </>
   );
