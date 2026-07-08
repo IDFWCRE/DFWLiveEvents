@@ -1,4 +1,6 @@
-export type EventCategory = "Music" | "Comedy";
+import type { EventCategoryLabel, EventCategorySlug, EventSubcategoryLabel, EventSubcategorySlug } from "@/lib/taxonomy";
+
+export type EventCategory = EventCategoryLabel;
 
 export type CitySlug =
   | "dallas"
@@ -32,6 +34,9 @@ export interface Event {
   city: string;
   citySlug: CitySlug;
   category: EventCategory;
+  categorySlug?: EventCategorySlug;
+  subcategorySlug?: EventSubcategorySlug;
+  subcategoryLabel?: EventSubcategoryLabel;
   description: string;
   ticketUrl: string;
   offerId?: string;

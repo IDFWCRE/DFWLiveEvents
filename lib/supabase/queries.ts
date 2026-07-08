@@ -1,5 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import type { CitySlug, Event, EventCategory, Venue } from "@/types/event";
+import {
+  eventCategorySlugs,
+  eventSubcategorySlugs,
+  getEventCategory,
+  getEventSubcategory,
+  type EventCategorySlug,
+  type EventSubcategorySlug
+} from "@/lib/taxonomy";
 
 type QueryResult<T> = {
   data: T;
@@ -31,6 +39,8 @@ type EventRow = {
   title: string;
   description: string | null;
   category: "music" | "comedy";
+  category_slug?: string | null;
+  subcategory_slug?: string | null;
   event_date: string;
   event_time: string | null;
   image_url: string | null;
@@ -68,6 +78,30 @@ function displayCategory(category: EventRow["category"]): EventCategory {
   return category === "comedy" ? "Comedy" : "Music";
 }
 
+function isEventCategorySlug(value?: string | null): value is EventCategorySlug {
+  return Boolean(value && (eventCategorySlugs as string[]).includes(value));
+}
+
+function isEventSubcategorySlug(value?: string | null): value is EventSubcategorySlug {
+  return Boolean(value && (eventSubcategorySlugs as string[]).includes(value));
+}
+
+function resolvedCategory(row: EventRow) {
+  const categorySlug = isEventCategorySlug(row.category_slug) ? row.category_slug : row.category;
+  return {
+    categorySlug,
+    categoryLabel: getEventCategory(categorySlug)?.label || displayCategory(row.category)
+  };
+}
+
+function resolvedSubcategory(row: EventRow) {
+  if (!isEventSubcategorySlug(row.subcategory_slug)) return {};
+  return {
+    subcategorySlug: row.subcategory_slug,
+    subcategoryLabel: getEventSubcategory(row.subcategory_slug)?.label
+  };
+}
+
 function mapVenue(row: VenueRow): Venue {
   return {
     id: row.id,
@@ -87,6 +121,8 @@ function mapEvent(row: EventRow): Event | null {
 
   const ticketOffer = row.event_offers?.find((offer) => offer.available) || row.event_offers?.[0];
   const dateTime = `${row.event_date}T${row.event_time || "00:00:00"}-05:00`;
+  const category = resolvedCategory(row);
+  const subcategory = resolvedSubcategory(row);
 
   return {
     id: row.id,
@@ -97,7 +133,9 @@ function mapEvent(row: EventRow): Event | null {
     venue: mapVenue(eventVenue),
     city: eventVenue.city,
     citySlug: slugifyCity(eventVenue.city),
-    category: displayCategory(row.category),
+    category: category.categoryLabel,
+    categorySlug: category.categorySlug,
+    ...subcategory,
     description: row.description || "",
     ticketUrl: ticketOffer?.affiliate_url || ticketOffer?.source_listing_url || "#",
     offerId: ticketOffer?.id,
@@ -108,6 +146,40 @@ function mapEvent(row: EventRow): Event | null {
 }
 
 const eventSelect = `
+  id,
+  slug,
+  title,
+  description,
+  category,
+  category_slug,
+  subcategory_slug,
+  event_date,
+  event_time,
+  image_url,
+  status,
+  venues (
+    id,
+    slug,
+    name,
+    city,
+    state,
+    address,
+    latitude,
+    longitude
+  ),
+  event_offers (
+    id,
+    source_name,
+    affiliate_url,
+    source_listing_url,
+    available
+  ),
+  owned_ticket_listings (
+    id
+  )
+`;
+
+const legacyEventSelect = `
   id,
   slug,
   title,
@@ -139,18 +211,36 @@ const eventSelect = `
   )
 `;
 
+function shouldRetryWithLegacyEventSelect(message: string) {
+  return message.includes("category_slug") || message.includes("subcategory_slug");
+}
+
 export async function getUpcomingEvents(): Promise<QueryResult<Event[]>> {
   const { client, error } = createSupabaseAnonClient();
   if (!client) return { data: [], error };
 
   const today = new Date().toISOString().slice(0, 10);
-  const { data, error: queryError } = await client
+  const primaryResult = await client
     .from("events")
     .select(eventSelect)
     .eq("status", "published")
     .gte("event_date", today)
     .order("event_date", { ascending: true })
     .order("event_time", { ascending: true });
+  let data: unknown = primaryResult.data;
+  let queryError = primaryResult.error;
+
+  if (queryError && shouldRetryWithLegacyEventSelect(queryError.message)) {
+    const legacyResult = await client
+      .from("events")
+      .select(legacyEventSelect)
+      .eq("status", "published")
+      .gte("event_date", today)
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true });
+    data = legacyResult.data;
+    queryError = legacyResult.error;
+  }
 
   if (queryError) {
     return { data: [], error: queryError.message };
@@ -174,12 +264,25 @@ export async function getEventBySlug(slug: string): Promise<QueryResult<Event | 
   const { client, error } = createSupabaseAnonClient();
   if (!client) return { data: null, error };
 
-  const { data, error: queryError } = await client
+  const primaryResult = await client
     .from("events")
     .select(eventSelect)
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
+  let data: unknown = primaryResult.data;
+  let queryError = primaryResult.error;
+
+  if (queryError && shouldRetryWithLegacyEventSelect(queryError.message)) {
+    const legacyResult = await client
+      .from("events")
+      .select(legacyEventSelect)
+      .eq("slug", slug)
+      .eq("status", "published")
+      .maybeSingle();
+    data = legacyResult.data;
+    queryError = legacyResult.error;
+  }
 
   if (queryError) {
     return { data: null, error: queryError.message };
