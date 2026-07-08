@@ -1,3 +1,5 @@
+import { mapImportTaxonomy, type ImportableEventCategorySlug } from "@/lib/import/taxonomy-map";
+import type { EventSubcategorySlug } from "@/lib/taxonomy";
 import { slugify } from "@/lib/ticketmaster/normalize";
 import type { EventbriteEvent } from "./client";
 
@@ -13,14 +15,13 @@ const allowedCities = new Set([
   "McKinney"
 ]);
 
-const comedyTerms = ["comedy", "comedian", "stand-up", "standup", "open mic"];
-const musicTerms = ["live music", "concert", "band", "dj", "singer", "songwriter"];
-
 export type NormalizedEventbriteEvent = {
   slug: string;
   title: string;
   description: string | null;
   category: "music" | "comedy";
+  categorySlug: ImportableEventCategorySlug;
+  subcategorySlug: EventSubcategorySlug | null;
   eventDate: string;
   eventTime: string | null;
   imageUrl: string | null;
@@ -53,23 +54,9 @@ function stripHtml(value?: string) {
   return value?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || null;
 }
 
-function parseCategory(event: EventbriteEvent): "music" | "comedy" | null {
-  const labels = [event.category?.name, event.category?.short_name, event.subcategory?.name, event.subcategory?.short_name]
-    .filter(Boolean)
-    .map((value) => String(value).toLowerCase());
-
-  if (labels.some((label) => label.includes("comedy"))) return "comedy";
-  if (labels.some((label) => label.includes("music"))) return "music";
-
-  const text = [event.name?.text, event.description?.text, stripHtml(event.description?.html)]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (comedyTerms.some((term) => text.includes(term))) return "comedy";
-  if (musicTerms.some((term) => text.includes(term))) return "music";
-
-  return null;
+function categoryLabels(event: EventbriteEvent) {
+  return [event.category?.name, event.category?.short_name, event.subcategory?.name, event.subcategory?.short_name]
+    .filter((value): value is string => Boolean(value));
 }
 
 function parseEventDateTime(local?: string) {
@@ -91,7 +78,8 @@ export function normalizeEventbriteEvent(event: EventbriteEvent): EventbriteNorm
   const externalEventId = event.id;
   const title = event.name?.text?.trim();
   const sourceUrl = event.url;
-  const category = parseCategory(event);
+  const description = event.description?.text || stripHtml(event.description?.html);
+  const taxonomy = mapImportTaxonomy(categoryLabels(event), [title, description, stripHtml(event.description?.html)]);
   const venue = event.venue;
   const city = venue?.address?.city?.trim();
   const state = venue?.address?.region?.trim() || "TX";
@@ -100,14 +88,14 @@ export function normalizeEventbriteEvent(event: EventbriteEvent): EventbriteNorm
   if (!externalEventId) return { event: null, skipped: true, reason: "missing external event id" };
   if (!title) return { event: null, skipped: true, reason: `missing title for ${externalEventId}` };
   if (!sourceUrl) return { event: null, skipped: true, reason: `missing source URL for ${title}` };
-  if (!category) return { event: null, skipped: true, reason: `unsupported category for ${title}` };
+  if (!taxonomy) return { event: null, skipped: true, reason: `unsupported category for ${title}` };
   if (!venue?.name || !city) return { event: null, skipped: true, reason: `missing venue/city for ${title}` };
   if (!allowedCities.has(city)) return { event: null, skipped: true, reason: `outside supported city list: ${city}` };
   if (!eventDate) return { event: null, skipped: true, reason: `missing event date for ${title}` };
 
-  const description = event.description?.text || stripHtml(event.description?.html);
   const address = venue.address?.localized_address_display || venue.address?.address_1 || `${city}, ${state}`;
   const performerName = event.organizer?.name || title;
+  const category = taxonomy.categorySlug;
 
   return {
     skipped: false,
@@ -116,6 +104,8 @@ export function normalizeEventbriteEvent(event: EventbriteEvent): EventbriteNorm
       title,
       description,
       category,
+      categorySlug: taxonomy.categorySlug,
+      subcategorySlug: taxonomy.subcategorySlug,
       eventDate,
       eventTime,
       imageUrl: event.logo?.original?.url || event.logo?.url || null,

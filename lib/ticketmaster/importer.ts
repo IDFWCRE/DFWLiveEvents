@@ -115,6 +115,8 @@ async function upsertEvent(supabase: SupabaseAdmin, event: NormalizedTicketmaste
         title: event.title,
         description: event.description,
         category: event.category,
+        category_slug: event.categorySlug,
+        subcategory_slug: event.subcategorySlug,
         event_date: event.eventDate,
         event_time: event.eventTime,
         image_url: event.imageUrl,
@@ -197,8 +199,11 @@ async function importTicketmasterEventsInternal(options: TicketmasterImportOptio
 
   let insertedCount = 0;
   let updatedCount = 0;
+  const subcategoryMappedCount = normalizedEvents.filter((event) => event.subcategorySlug).length;
 
-  options.log?.(`[ticketmaster] Upserting ${normalizedEvents.length} normalized event(s)`);
+  options.log?.(
+    `[ticketmaster] Upserting ${normalizedEvents.length} normalized event(s); subcategory_mapped=${subcategoryMappedCount}`
+  );
 
   for (const event of normalizedEvents) {
     try {
@@ -231,7 +236,7 @@ async function importTicketmasterEventsInternal(options: TicketmasterImportOptio
   };
 
   options.log?.(
-    `[ticketmaster] Import complete: fetched=${summary.fetchedCount}, inserted=${summary.insertedCount}, updated=${summary.updatedCount}, skipped=${summary.skippedCount}, errors=${summary.errors.length}`
+    `[ticketmaster] Import complete: fetched=${summary.fetchedCount}, inserted=${summary.insertedCount}, updated=${summary.updatedCount}, skipped=${summary.skippedCount}, subcategory_mapped=${subcategoryMappedCount}, errors=${summary.errors.length}`
   );
 
   return summary;

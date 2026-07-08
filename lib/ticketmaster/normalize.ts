@@ -1,3 +1,5 @@
+import { mapImportTaxonomy, type ImportableEventCategorySlug } from "@/lib/import/taxonomy-map";
+import type { EventSubcategorySlug } from "@/lib/taxonomy";
 import type { TicketmasterEvent } from "./client";
 
 export type NormalizedTicketmasterEvent = {
@@ -5,6 +7,8 @@ export type NormalizedTicketmasterEvent = {
   title: string;
   description: string | null;
   category: "music" | "comedy";
+  categorySlug: ImportableEventCategorySlug;
+  subcategorySlug: EventSubcategorySlug | null;
   eventDate: string;
   eventTime: string | null;
   imageUrl: string | null;
@@ -48,19 +52,14 @@ function bestImage(images: TicketmasterEvent["images"]) {
   return [...candidates].sort((a, b) => (b.width || 0) - (a.width || 0))[0]?.url || null;
 }
 
-function parseCategory(event: TicketmasterEvent): "music" | "comedy" | null {
-  const labels = (event.classifications || [])
+function classificationLabels(event: TicketmasterEvent) {
+  return (event.classifications || [])
     .flatMap((classification) => [
       classification.segment?.name,
       classification.genre?.name,
       classification.subGenre?.name
     ])
-    .filter(Boolean)
-    .map((label) => String(label).toLowerCase());
-
-  if (labels.some((label) => label.includes("comedy"))) return "comedy";
-  if (labels.some((label) => label.includes("music"))) return "music";
-  return null;
+    .filter((label): label is string => Boolean(label));
 }
 
 function parseCoordinate(value?: string) {
@@ -77,21 +76,24 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): Normalized
   const city = venue?.city?.name?.trim();
   const state = venue?.state?.stateCode?.trim() || "TX";
   const eventDate = event.dates?.start?.localDate;
-  const category = parseCategory(event);
+  const taxonomy = mapImportTaxonomy(classificationLabels(event), [title, event.info, event.pleaseNote]);
   const sourceUrl = event.url;
 
-  if (!externalEventId || !title || !venueName || !city || !eventDate || !category || !sourceUrl) {
+  if (!externalEventId || !title || !venueName || !city || !eventDate || !taxonomy || !sourceUrl) {
     return null;
   }
 
   const address = [venue?.address?.line1, venue?.address?.line2].filter(Boolean).join(", ") || `${city}, ${state}`;
   const eventSlug = slugify(`${title}-${city}-${eventDate}-${externalEventId}`);
+  const category = taxonomy.categorySlug;
 
   return {
     slug: eventSlug,
     title,
     description: event.info || event.pleaseNote || null,
     category,
+    categorySlug: taxonomy.categorySlug,
+    subcategorySlug: taxonomy.subcategorySlug,
     eventDate,
     eventTime: event.dates?.start?.localTime || null,
     imageUrl: bestImage(event.images),

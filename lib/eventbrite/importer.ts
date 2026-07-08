@@ -117,6 +117,8 @@ async function upsertEvent(supabase: SupabaseAdmin, event: NormalizedEventbriteE
         title: event.title,
         description: event.description,
         category: event.category,
+        category_slug: event.categorySlug,
+        subcategory_slug: event.subcategorySlug,
         event_date: event.eventDate,
         event_time: event.eventTime,
         image_url: event.imageUrl,
@@ -222,8 +224,11 @@ async function importEventbriteEventsInternal(options: EventbriteImportOptions =
 
   let insertedCount = 0;
   let updatedCount = 0;
+  const subcategoryMappedCount = normalizedEvents.filter((event) => event.subcategorySlug).length;
 
-  options.log?.(`[eventbrite] Upserting ${normalizedEvents.length} normalized event(s)`);
+  options.log?.(
+    `[eventbrite] Upserting ${normalizedEvents.length} normalized event(s); subcategory_mapped=${subcategoryMappedCount}`
+  );
 
   for (const event of normalizedEvents) {
     try {
@@ -256,7 +261,7 @@ async function importEventbriteEventsInternal(options: EventbriteImportOptions =
   };
 
   options.log?.(
-    `[eventbrite] Import complete: fetched=${summary.fetchedCount}, inserted=${summary.insertedCount}, updated=${summary.updatedCount}, skipped=${summary.skippedCount}, errors=${summary.errors.length}`
+    `[eventbrite] Import complete: fetched=${summary.fetchedCount}, inserted=${summary.insertedCount}, updated=${summary.updatedCount}, skipped=${summary.skippedCount}, subcategory_mapped=${subcategoryMappedCount}, errors=${summary.errors.length}`
   );
 
   return summary;
