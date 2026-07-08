@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { CityNavDropdown } from "@/components/CityNavDropdown";
 import { logoutAction } from "@/lib/auth/actions";
 import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
-import { cities } from "@/lib/cities";
 
 export async function SiteHeader() {
   const { user, profile } = await getCurrentUserWithProfile();
@@ -21,16 +21,7 @@ export async function SiteHeader() {
         </Link>
         <nav className="main-nav" aria-label="Primary navigation">
           <Link href="/events">Events</Link>
-          <details className="nav-dropdown">
-            <summary>City</summary>
-            <div className="nav-menu">
-              {cities.map((city) => (
-                <Link href={city.path} key={city.slug}>
-                  {city.name}
-                </Link>
-              ))}
-            </div>
-          </details>
+          <CityNavDropdown />
           <Link href="/tickets">Tickets</Link>
           <Link href="/venues">Venues</Link>
           <Link href="/about">About Us</Link>
