@@ -143,26 +143,104 @@ a {
   font-weight: 750;
 }
 
-.main-nav a,
-.nav-button {
+.main-nav > a,
+.nav-button,
+.nav-dropdown summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--muted);
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: 1;
+}
+
+.main-nav > a:hover,
+.nav-button:hover,
+.nav-dropdown summary:hover {
+  color: var(--text);
+}
+
+.main-nav form {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+.nav-dropdown {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
   min-height: 36px;
 }
 
-.main-nav a:hover {
+.nav-dropdown summary {
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.nav-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-dropdown summary::after {
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  content: "";
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.nav-dropdown[open] summary {
   color: var(--text);
+}
+
+.nav-dropdown[open] summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+
+.nav-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 10px);
+  left: 50%;
+  display: grid;
+  width: 210px;
+  max-height: min(70vh, 360px);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(28, 30, 38, 0.98), rgba(12, 13, 16, 0.98)),
+    linear-gradient(135deg, rgba(255, 122, 26, 0.12), transparent 55%);
+  box-shadow: var(--shadow-warm);
+  transform: translateX(-50%);
+}
+
+.nav-menu a {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+
+.nav-menu a:hover {
+  color: var(--text);
+  background: var(--orange-soft);
 }
 
 .nav-button {
   padding: 0;
-  color: var(--muted);
   cursor: pointer;
   border: 0;
   background: transparent;
-  font-weight: 750;
-}
-
-.nav-button:hover {
-  color: var(--text);
 }
 
 main {

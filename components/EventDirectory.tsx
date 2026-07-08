@@ -20,6 +20,7 @@ interface EventDirectoryProps {
   mode?: Mode;
   title?: string;
   isLoggedIn?: boolean;
+  showCityFilter?: boolean;
 }
 
 const dateFilterOptions: Array<[DateFilter, string, string]> = [
@@ -79,7 +80,8 @@ export function EventDirectory({
   initialSearch = "",
   mode = "filter",
   title = "Upcoming Events",
-  isLoggedIn = false
+  isLoggedIn = false,
+  showCityFilter = true
 }: EventDirectoryProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(initialSearch);
@@ -142,22 +144,24 @@ export function EventDirectory({
           ))}
         </div>
 
-        <div className="filter-row">
-          <span className="filter-label">City</span>
-          <div className="filter-group" role="group" aria-label="Filter events by city">
-            {["All", ...cities.map((city) => city.name)].map((city) => (
-              <button
-                className={`filter-button ${cityFilter === city ? "active" : ""}`}
-                key={city}
-                type="button"
-                aria-pressed={cityFilter === city}
-                onClick={() => (isLinkMode ? router.push(getCityHref(city)) : setCityFilter(city))}
-              >
-                {city === "All" ? "All DFW" : city}
-              </button>
-            ))}
+        {showCityFilter ? (
+          <div className="filter-row">
+            <span className="filter-label">City</span>
+            <div className="filter-group" role="group" aria-label="Filter events by city">
+              {["All", ...cities.map((city) => city.name)].map((city) => (
+                <button
+                  className={`filter-button ${cityFilter === city ? "active" : ""}`}
+                  key={city}
+                  type="button"
+                  aria-pressed={cityFilter === city}
+                  onClick={() => (isLinkMode ? router.push(getCityHref(city)) : setCityFilter(city))}
+                >
+                  {city === "All" ? "All DFW" : city}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="filter-row">
           <span className="filter-label">Category</span>
