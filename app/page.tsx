@@ -19,7 +19,7 @@ export default async function HomePage() {
             Find your next <span className="accent">live show.</span>
           </>
         }
-        copy="Discover concerts, comedy nights, venues, and city guides across Dallas-Fort Worth."
+        copy="Discover concerts, comedy nights, venues, city guides, partner ticket links, and manually fulfilled DFW-owned ticket requests."
       />
       {error ? (
         <DataState title="Supabase setup needed" message={error} />

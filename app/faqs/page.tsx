@@ -3,11 +3,11 @@ import { PageHero } from "@/components/PageHero";
 const faqs = [
   {
     question: "How do I buy tickets?",
-    answer: "Choose an event and click Buy Tickets. We will send you to the available ticketing source for that event."
+    answer: "Choose an event and click Buy Tickets to continue to the available partner ticketing source. If DFW Live Events-owned tickets are available, logged-in users can submit a ticket request instead."
   },
   {
     question: "Are tickets sold directly by DFW Live Events?",
-    answer: "Not right now. DFW Live Events is currently a discovery directory that links to official or partner ticketing pages."
+    answer: "Some DFW Live Events-owned ticket listings can be requested through the site. These requests are manually reviewed and fulfilled; checkout, payment processing, and instant ticket transfer are not implemented yet."
   },
   {
     question: "Why am I redirected to Ticketmaster or another ticketing site?",
@@ -15,7 +15,7 @@ const faqs = [
   },
   {
     question: "Can I list tickets for resale?",
-    answer: "Not yet. Resale and seller accounts are planned for a later marketplace phase."
+    answer: "Not yet. Reseller applications can be submitted and reviewed, but approved reseller listing tools are not live yet."
   },
   {
     question: "How do I contact DFW Live Events?",

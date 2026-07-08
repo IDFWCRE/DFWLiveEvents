@@ -25,7 +25,7 @@ export default async function AccountPage() {
             Your <span className="accent">dashboard.</span>
           </>
         }
-        copy="Manage your buyer account, reseller status, and future marketplace tools."
+        copy="Track DFW-owned ticket requests, manage your account, and view reseller application status."
       />
       <section className="detail-panel stack">
         <h2 className="section-title">Profile</h2>
@@ -77,14 +77,14 @@ export default async function AccountPage() {
         {resellerStatus === "pending" ? (
           <div className="empty-state">
             <h3>Reseller Approval Pending</h3>
-            <p className="muted">Your reseller request is under review. Listing tools unlock after approval.</p>
+            <p className="muted">Your reseller request is under review. Approved reseller listing tools are not live yet.</p>
             {sellerProfile ? <p className="muted">Application: {sellerProfile.business_name || sellerProfile.display_name || "Pending seller profile"}</p> : null}
           </div>
         ) : null}
         {resellerStatus === "approved" ? (
           <div className="empty-state">
             <h3>Reseller Dashboard</h3>
-            <p className="muted">Approved reseller tools are coming soon. Ticket listing is not enabled in Phase 1F.</p>
+            <p className="muted">Your reseller account is approved, but reseller listing tools are not live yet.</p>
           </div>
         ) : null}
         <form action={logoutAction}>

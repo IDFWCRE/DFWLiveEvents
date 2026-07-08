@@ -27,7 +27,7 @@ export default async function ResellerPage({ searchParams }: { searchParams: Pro
             Reseller <span className="accent">application.</span>
           </>
         }
-        copy="Apply for future seller tools. Payments, checkout, payouts, and ticket transfer are not enabled yet."
+        copy="Apply for future reseller listing tools. DFW-owned ticket requests are live, but reseller listings, checkout, payouts, and ticket transfer are not enabled yet."
       />
       <section className="detail-panel stack">
         <h2 className="section-title">Status: {status}</h2>
@@ -54,7 +54,7 @@ export default async function ResellerPage({ searchParams }: { searchParams: Pro
             <button className="primary-button" type="submit">Submit Reseller Request</button>
           </form>
         ) : (
-          <p className="muted">Your reseller application is already {status}. Listing tools are not enabled in this phase.</p>
+          <p className="muted">Your reseller application is already {status}. Approved reseller listing tools are not live yet.</p>
         )}
       </section>
     </>

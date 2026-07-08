@@ -19,8 +19,9 @@ export default function AboutPage() {
           Denton, Irving, Grand Prairie, Plano, Frisco, McKinney, and the broader North Texas scene.
         </p>
         <p className="muted">
-          Today, the site focuses on discovery and trusted ticket links. Future phases may add buyer and seller
-          accounts, richer venue tools, and marketplace features.
+          Today, the site supports event discovery, trusted partner ticket links, and a small set of DFW Live Events-owned
+          ticket listings that logged-in users can request. Those requests are manually reviewed and fulfilled; online
+          checkout, payment processing, instant ticket transfer, and reseller listing tools are not live yet.
         </p>
       </section>
     </>

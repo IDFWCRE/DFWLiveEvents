@@ -15,7 +15,7 @@ export default async function TicketsPage() {
             DFW Live Events <span className="accent">Tickets.</span>
           </>
         }
-        copy="Request tickets owned by DFW Live Events. Payments and fulfillment are handled manually for now."
+        copy="Request tickets owned by DFW Live Events. Availability, payment, and fulfillment are confirmed manually after you submit a request."
       />
       {error ? (
         <DataState title="Ticket setup needed" message={error} />
@@ -28,7 +28,7 @@ export default async function TicketsPage() {
       ) : (
         <div className="empty-state">
           <h2>No DFW-owned tickets available</h2>
-          <p className="muted">Check back soon for manually fulfilled ticket inventory.</p>
+          <p className="muted">Check back soon for DFW-owned inventory available by manual request.</p>
         </div>
       )}
     </>
