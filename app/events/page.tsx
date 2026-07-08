@@ -3,12 +3,14 @@ import { EventDirectory } from "@/components/EventDirectory";
 import { PageHero } from "@/components/PageHero";
 import { getCurrentUserWithProfile } from "@/lib/auth/profiles";
 import { getUpcomingEvents } from "@/lib/supabase/queries";
+import { getEventSubcategories, type EventSubcategorySlug } from "@/lib/taxonomy";
 import type { EventCategory } from "@/types/event";
 
 type EventsSearchParams = {
   q?: string;
   city?: string;
   category?: string;
+  subcategory?: string;
   date?: string;
 };
 
@@ -25,12 +27,22 @@ function getInitialDate(date?: string) {
   return "all";
 }
 
+function getInitialSubcategory(category: EventCategory | "All", subcategory?: string): EventSubcategorySlug | undefined {
+  if (!subcategory) return undefined;
+  const categorySlug = category === "Music" ? "music" : category === "Comedy" ? "comedy" : null;
+  if (!categorySlug) return undefined;
+  return getEventSubcategories(categorySlug).some((item) => item.slug === subcategory)
+    ? (subcategory as EventSubcategorySlug)
+    : undefined;
+}
+
 export default async function EventsPage({ searchParams }: { searchParams: Promise<EventsSearchParams> }) {
   const params = await searchParams;
   const { user } = await getCurrentUserWithProfile();
   const { data: events, error } = await getUpcomingEvents();
   const initialCity = params.city || "All";
   const initialCategory = getInitialCategory(params.category);
+  const initialSubcategory = getInitialSubcategory(initialCategory, params.subcategory);
   const initialDate = getInitialDate(params.date);
   const initialSearch = params.q || "";
 
@@ -52,6 +64,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
           events={events}
           initialCategory={initialCategory}
           initialCity={initialCity}
+          initialSubcategory={initialSubcategory}
           initialDate={initialDate}
           initialSearch={initialSearch}
           isLoggedIn={Boolean(user)}

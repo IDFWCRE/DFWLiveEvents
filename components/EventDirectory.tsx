@@ -3,17 +3,20 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { categories } from "@/lib/events";
+import { getEventSubcategories, type EventCategorySlug, type EventSubcategorySlug } from "@/lib/taxonomy";
 import type { Event, EventCategory } from "@/types/event";
 import { EventCard } from "./EventCard";
 
 type DateFilter = "today" | "week" | "month" | "all";
 type CategoryFilter = EventCategory | "All";
+type VisibleCategorySlug = Extract<EventCategorySlug, "music" | "comedy">;
 type Mode = "filter" | "link";
 
 interface EventDirectoryProps {
   events: Event[];
   initialCity?: string;
   initialCategory?: CategoryFilter;
+  initialSubcategory?: EventSubcategorySlug;
   initialDate?: DateFilter;
   initialSearch?: string;
   mode?: Mode;
@@ -66,10 +69,28 @@ function getCategoryHref(category: CategoryFilter) {
   return `/events?category=${category.toLowerCase()}`;
 }
 
+function getSubcategoryHref(categorySlug: VisibleCategorySlug, subcategorySlug?: EventSubcategorySlug) {
+  const params = new URLSearchParams({ category: categorySlug });
+  if (subcategorySlug) params.set("subcategory", subcategorySlug);
+  return `/events?${params.toString()}`;
+}
+
+function getCategorySlug(category: CategoryFilter): VisibleCategorySlug | null {
+  if (category === "Music") return "music";
+  if (category === "Comedy") return "comedy";
+  return null;
+}
+
+function isSubcategoryForCategory(categorySlug: VisibleCategorySlug | null, subcategorySlug?: EventSubcategorySlug) {
+  if (!categorySlug || !subcategorySlug) return false;
+  return getEventSubcategories(categorySlug).some((subcategory) => subcategory.slug === subcategorySlug);
+}
+
 export function EventDirectory({
   events,
   initialCity = "All",
   initialCategory = "All",
+  initialSubcategory,
   initialDate = "all",
   initialSearch = "",
   mode = "filter",
@@ -81,6 +102,11 @@ export function EventDirectory({
   const [dateFilter, setDateFilter] = useState<DateFilter>(initialDate);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(initialCategory);
   const isLinkMode = mode === "link";
+  const selectedCategorySlug = getCategorySlug(categoryFilter);
+  const [subcategoryFilter, setSubcategoryFilter] = useState<EventSubcategorySlug | undefined>(
+    isSubcategoryForCategory(selectedCategorySlug, initialSubcategory) ? initialSubcategory : undefined
+  );
+  const visibleSubcategories = selectedCategorySlug ? getEventSubcategories(selectedCategorySlug) : [];
 
   const filteredEvents = useMemo(() => {
     if (isLinkMode) return events;
@@ -93,9 +119,33 @@ export function EventDirectory({
         event.venue.name.toLowerCase().includes(search);
       const matchesCity = initialCity === "All" || event.city === initialCity;
       const matchesCategory = categoryFilter === "All" || event.category === categoryFilter;
-      return matchesSearch && matchesCity && matchesCategory && matchesDateFilter(event.dateTime, dateFilter);
+      const matchesSubcategory = !subcategoryFilter || event.subcategorySlug === subcategoryFilter;
+      return matchesSearch && matchesCity && matchesCategory && matchesSubcategory && matchesDateFilter(event.dateTime, dateFilter);
     });
-  }, [categoryFilter, dateFilter, events, initialCity, isLinkMode, searchTerm]);
+  }, [categoryFilter, dateFilter, events, initialCity, isLinkMode, searchTerm, subcategoryFilter]);
+
+  function selectCategory(category: CategoryFilter) {
+    if (isLinkMode) {
+      router.push(getCategoryHref(category));
+      return;
+    }
+
+    setCategoryFilter(category);
+    const nextCategorySlug = getCategorySlug(category);
+    if (!isSubcategoryForCategory(nextCategorySlug, subcategoryFilter)) {
+      setSubcategoryFilter(undefined);
+    }
+  }
+
+  function selectSubcategory(subcategorySlug?: EventSubcategorySlug) {
+    if (!selectedCategorySlug) return;
+    if (isLinkMode) {
+      router.push(getSubcategoryHref(selectedCategorySlug, subcategorySlug));
+      return;
+    }
+
+    setSubcategoryFilter(subcategorySlug);
+  }
 
   function submitSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,13 +195,40 @@ export function EventDirectory({
                 key={category}
                 type="button"
                 aria-pressed={categoryFilter === category}
-                onClick={() => (isLinkMode ? router.push(getCategoryHref(category)) : setCategoryFilter(category))}
+                onClick={() => selectCategory(category)}
               >
                 {category}
               </button>
             ))}
           </div>
         </div>
+
+        {selectedCategorySlug ? (
+          <div className="filter-row">
+            <span className="filter-label">Subcategory</span>
+            <div className="filter-group" role="group" aria-label={`Filter ${categoryFilter} events by subcategory`}>
+              <button
+                className={`filter-button ${!subcategoryFilter ? "active" : ""}`}
+                type="button"
+                aria-pressed={!subcategoryFilter}
+                onClick={() => selectSubcategory()}
+              >
+                All {categoryFilter}
+              </button>
+              {visibleSubcategories.map((subcategory) => (
+                <button
+                  className={`filter-button ${subcategoryFilter === subcategory.slug ? "active" : ""}`}
+                  key={subcategory.slug}
+                  type="button"
+                  aria-pressed={subcategoryFilter === subcategory.slug}
+                  onClick={() => selectSubcategory(subcategory.slug)}
+                >
+                  {subcategory.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </form>
 
       <div className="results-meta">
