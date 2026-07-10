@@ -43,6 +43,13 @@ export interface Event {
   ticketSourceName?: string;
   sourceProvider?: string;
   sourceUrl?: string;
+  sourceLinks?: EventSourceLink[];
   hasOwnedTickets?: boolean;
   status: "draft" | "published" | "cancelled";
+}
+
+export interface EventSourceLink {
+  provider: string;
+  label: string;
+  url: string;
 }

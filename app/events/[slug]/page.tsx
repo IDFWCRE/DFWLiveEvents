@@ -24,6 +24,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const goHref = event.offerId ? `/go/${event.offerId}` : event.ticketUrl;
   const ticketHref = isLoggedIn ? goHref : `/login?next=${encodeURIComponent(goHref)}`;
   const opensInNewTab = isExternalTicketOffer(event.ticketSourceName);
+  const ticketOptions = event.sourceLinks || [];
+  const showTicketOptions = ticketOptions.length > 1;
   const { data: ownedListings } = await getActiveOwnedTicketListingsByEvent(event.id);
   const providerLabel =
     event.sourceProvider?.toLowerCase() === "ticketmaster"
@@ -60,9 +62,23 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           <br />
           <span className="muted">{event.venue.address}</span>
         </p>
-        <a className="primary-button" href={ticketHref} target={opensInNewTab ? "_blank" : undefined} rel={opensInNewTab ? "noopener noreferrer" : undefined}>
-          {isLoggedIn ? "Buy Tickets" : "Login to Buy Tickets"}
-        </a>
+        {showTicketOptions ? (
+          <div className="stack">
+            <h3 className="section-title">Ticket Options</h3>
+            {ticketOptions.map((option) => {
+              const optionHref = isLoggedIn ? option.url : `/login?next=${encodeURIComponent(option.url)}`;
+              return (
+                <a className="primary-button" href={optionHref} target={isLoggedIn ? "_blank" : undefined} rel={isLoggedIn ? "noopener noreferrer" : undefined} key={`${option.provider}-${option.url}`}>
+                  {isLoggedIn ? option.label : `Login to ${option.label}`}
+                </a>
+              );
+            })}
+          </div>
+        ) : (
+          <a className="primary-button" href={ticketHref} target={opensInNewTab ? "_blank" : undefined} rel={opensInNewTab ? "noopener noreferrer" : undefined}>
+            {isLoggedIn ? "Buy Tickets" : "Login to Buy Tickets"}
+          </a>
+        )}
         {!isLoggedIn ? <p className="muted">Create a free account to continue to ticket purchase.</p> : null}
       </aside>
       {ownedListings.length ? (

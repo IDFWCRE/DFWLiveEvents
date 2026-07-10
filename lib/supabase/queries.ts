@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { CitySlug, Event, EventCategory, Venue } from "@/types/event";
+import type { CitySlug, Event, EventCategory, EventSourceLink, Venue } from "@/types/event";
 import {
   eventCategorySlugs,
   eventSubcategorySlugs,
@@ -33,6 +33,13 @@ type EventOfferRow = {
   available: boolean;
 };
 
+type EventSourceLinkRow = {
+  source_provider: string | null;
+  source_url: string | null;
+  ticket_url: string | null;
+  import_status?: string | null;
+};
+
 type EventRow = {
   id: string;
   slug: string;
@@ -50,6 +57,7 @@ type EventRow = {
   status: "draft" | "published" | "cancelled";
   venues: VenueRow | VenueRow[] | null;
   event_offers?: EventOfferRow[] | null;
+  event_source_links?: EventSourceLinkRow[] | null;
   owned_ticket_listings?: Array<{ id: string }> | null;
 };
 
@@ -118,6 +126,35 @@ function mapVenue(row: VenueRow): Venue {
   };
 }
 
+function sourceLinkLabel(provider?: string | null) {
+  const normalized = provider?.toLowerCase();
+  if (normalized === "ticketmaster") return "Buy Tickets on Ticketmaster";
+  if (normalized === "eventbrite") return "View on Eventbrite";
+  if (normalized === "stubhub") return "Buy Tickets on StubHub";
+  return "View Event";
+}
+
+function mapSourceLinks(row: EventRow): EventSourceLink[] {
+  const seen = new Set<string>();
+  const links: EventSourceLink[] = [];
+
+  for (const sourceLink of row.event_source_links || []) {
+    if (sourceLink.import_status && sourceLink.import_status !== "active") continue;
+    const url = (sourceLink.ticket_url || sourceLink.source_url || "").trim();
+    if (!url || url === "#") continue;
+    const dedupeKey = url.toLowerCase();
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    links.push({
+      provider: sourceLink.source_provider || "unknown",
+      label: sourceLinkLabel(sourceLink.source_provider),
+      url
+    });
+  }
+
+  return links;
+}
+
 function mapEvent(row: EventRow): Event | null {
   const eventVenue = Array.isArray(row.venues) ? row.venues[0] : row.venues;
   if (!eventVenue) return null;
@@ -145,6 +182,7 @@ function mapEvent(row: EventRow): Event | null {
     ticketSourceName: ticketOffer?.source_name || undefined,
     sourceProvider: row.source_provider || ticketOffer?.source_name || undefined,
     sourceUrl: row.source_url || undefined,
+    sourceLinks: mapSourceLinks(row),
     hasOwnedTickets: Boolean(row.owned_ticket_listings?.length),
     status: row.status
   };
@@ -181,6 +219,49 @@ const eventSelect = `
     affiliate_url,
     source_listing_url,
     available
+  ),
+  owned_ticket_listings (
+    id
+  )
+`;
+
+const eventDetailSelect = `
+  id,
+  slug,
+  title,
+  description,
+  category,
+  category_slug,
+  subcategory_slug,
+  event_date,
+  event_time,
+  image_url,
+  source_provider,
+  source_url,
+  ticket_url,
+  status,
+  venues (
+    id,
+    slug,
+    name,
+    city,
+    state,
+    address,
+    latitude,
+    longitude
+  ),
+  event_offers (
+    id,
+    source_name,
+    affiliate_url,
+    source_listing_url,
+    available
+  ),
+  event_source_links (
+    source_provider,
+    source_url,
+    ticket_url,
+    import_status
   ),
   owned_ticket_listings (
     id
@@ -225,7 +306,8 @@ function shouldRetryWithLegacyEventSelect(message: string) {
     message.includes("subcategory_slug") ||
     message.includes("source_provider") ||
     message.includes("source_url") ||
-    message.includes("ticket_url")
+    message.includes("ticket_url") ||
+    message.includes("event_source_links")
   );
 }
 
@@ -236,7 +318,7 @@ export async function getUpcomingEvents(): Promise<QueryResult<Event[]>> {
   const today = new Date().toISOString().slice(0, 10);
   const primaryResult = await client
     .from("events")
-    .select(eventSelect)
+    .select(eventDetailSelect)
     .eq("status", "published")
     .gte("event_date", today)
     .order("event_date", { ascending: true })

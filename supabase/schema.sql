@@ -634,6 +634,7 @@ for each row execute function public.handle_new_auth_user();
 alter table venues enable row level security;
 alter table performers enable row level security;
 alter table events enable row level security;
+alter table event_source_links enable row level security;
 alter table event_performers enable row level security;
 alter table ticket_sources enable row level security;
 alter table event_offers enable row level security;
@@ -691,6 +692,19 @@ using (
   and exists (
     select 1 from events
     where events.id = event_offers.event_id
+    and events.status = 'published'
+  )
+);
+
+drop policy if exists "Public can read active event source links for published events" on event_source_links;
+create policy "Public can read active event source links for published events"
+on event_source_links for select
+to anon, authenticated
+using (
+  import_status = 'active'
+  and exists (
+    select 1 from events
+    where events.id = event_source_links.event_id
     and events.status = 'published'
   )
 );
