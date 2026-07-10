@@ -832,6 +832,24 @@ textarea.admin-input {
   font-weight: 750;
 }
 
+.admin-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.admin-status-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px;
+}
+
+.admin-status-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
 .admin-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);

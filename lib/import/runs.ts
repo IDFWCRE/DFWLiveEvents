@@ -18,6 +18,14 @@ export type ImportRunOptions = {
   triggeredBy?: string;
 };
 
+function getTriggerType(options: ImportRunOptions) {
+  if (options.runType === "cron") return "cron";
+  if (options.runType === "manual_api" || options.runType === "admin_button" || options.triggeredBy === "admin_api") {
+    return "admin";
+  }
+  return "manual";
+}
+
 export function getSummaryStatus(summary: ImportSummaryCounts): Exclude<ImportRunStatus, "running"> {
   if (!summary.errors.length) return "success";
   const didAnyWork =
@@ -35,41 +43,50 @@ export async function startImportRun(options: ImportRunOptions) {
     .from("source_import_runs")
     .insert({
       source_name: options.sourceName,
+      provider: options.sourceName,
       run_type: options.runType,
+      trigger_type: getTriggerType(options),
       status: "running",
+      success: false,
       import_window_start: importWindow.startIso,
       import_window_end: importWindow.endIso,
       triggered_by: options.triggeredBy || null
     })
-    .select("id")
+    .select("id, started_at")
     .single();
 
   if (error) {
     throw new Error(`Unable to create import run record: ${error.message}`);
   }
 
-  return String(data.id);
+  return { id: String(data.id), startedAt: String(data.started_at) };
 }
 
-export async function finishImportRun(runId: string, summary: ImportSummaryCounts) {
+export async function finishImportRun(run: { id: string; startedAt: string }, summary: ImportSummaryCounts) {
   const supabase = createSupabaseAdminClient();
   const status = getSummaryStatus(summary);
   const errorMessage = summary.errors.length ? summary.errors.slice(0, 5).join("\n") : null;
+  const finishedAt = new Date();
+  const startedAtMs = new Date(run.startedAt).getTime();
+  const durationMs = Number.isFinite(startedAtMs) ? Math.max(0, finishedAt.getTime() - startedAtMs) : null;
 
   const { error } = await supabase
     .from("source_import_runs")
     .update({
       status,
-      finished_at: new Date().toISOString(),
+      success: status === "success",
+      finished_at: finishedAt.toISOString(),
+      duration_ms: durationMs,
       fetched_count: summary.fetchedCount,
       inserted_count: summary.insertedCount,
       updated_count: summary.updatedCount,
       skipped_count: summary.skippedCount,
       error_count: summary.errors.length,
       error_message: errorMessage,
+      errors: summary.errors,
       summary
     })
-    .eq("id", runId);
+    .eq("id", run.id);
 
   if (error) {
     throw new Error(`Unable to update import run record: ${error.message}`);
@@ -79,7 +96,7 @@ export async function finishImportRun(runId: string, summary: ImportSummaryCount
 }
 
 export async function failImportRun(
-  runId: string,
+  run: { id: string; startedAt: string },
   error: unknown,
   partialSummary?: Partial<ImportSummaryCounts>
 ) {
@@ -92,21 +109,27 @@ export async function failImportRun(
     errors: [...(partialSummary?.errors || []), message]
   };
   const supabase = createSupabaseAdminClient();
+  const finishedAt = new Date();
+  const startedAtMs = new Date(run.startedAt).getTime();
+  const durationMs = Number.isFinite(startedAtMs) ? Math.max(0, finishedAt.getTime() - startedAtMs) : null;
 
   const { error: updateError } = await supabase
     .from("source_import_runs")
     .update({
       status: "failed",
-      finished_at: new Date().toISOString(),
+      success: false,
+      finished_at: finishedAt.toISOString(),
+      duration_ms: durationMs,
       fetched_count: summary.fetchedCount,
       inserted_count: summary.insertedCount,
       updated_count: summary.updatedCount,
       skipped_count: summary.skippedCount,
       error_count: summary.errors.length,
       error_message: message,
+      errors: summary.errors,
       summary
     })
-    .eq("id", runId);
+    .eq("id", run.id);
 
   if (updateError) {
     throw new Error(`Unable to mark import run failed: ${updateError.message}`);
@@ -121,14 +144,14 @@ export async function runWithImportHistory<TSummary extends ImportSummaryCounts>
     return callback();
   }
 
-  const runId = await startImportRun(options);
+  const run = await startImportRun(options);
 
   try {
     const summary = await callback();
-    await finishImportRun(runId, summary);
+    await finishImportRun(run, summary);
     return summary;
   } catch (error) {
-    await failImportRun(runId, error);
+    await failImportRun(run, error);
     throw error;
   }
 }

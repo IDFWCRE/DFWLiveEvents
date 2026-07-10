@@ -19,15 +19,36 @@ type SourceTarget = {
 type ImportRun = {
   id: string;
   source_name: string;
+  provider?: string | null;
   run_type: string;
+  trigger_type?: string | null;
   status: string;
+  success?: boolean | null;
   started_at: string;
   finished_at: string | null;
+  duration_ms?: number | null;
   fetched_count: number;
   inserted_count: number;
   updated_count: number;
   skipped_count: number;
   error_count: number;
+  error_message?: string | null;
+  errors?: unknown;
+};
+
+type ProviderStatus = {
+  provider: string;
+  last_attempted_sync: string | null;
+  last_successful_sync: string | null;
+  last_status: string | null;
+  last_trigger_type: string | null;
+  duration_ms: number | null;
+  fetched_count: number;
+  inserted_count: number;
+  updated_count: number;
+  skipped_count: number;
+  error_count: number;
+  last_error: string | null;
 };
 
 type ResellerApplication = {
@@ -153,6 +174,20 @@ function duration(startedAt: string, finishedAt: string | null) {
   return `${Math.round(ms / 1000)}s`;
 }
 
+function formatDurationMs(value?: number | null) {
+  if (value === null || value === undefined) return "-";
+  if (value < 1000) return `${value}ms`;
+  return `${Math.round(value / 1000)}s`;
+}
+
+function providerLabel(provider: string) {
+  if (provider === "ticketmaster") return "Ticketmaster";
+  if (provider === "eventbrite") return "Eventbrite";
+  if (provider === "stubhub") return "StubHub";
+  if (provider === "all") return "All";
+  return provider;
+}
+
 export function AdminDashboard({
   envRows,
   importWindowLabel,
@@ -169,6 +204,7 @@ export function AdminDashboard({
   const [importResult, setImportResult] = useState<unknown>(null);
   const [targets, setTargets] = useState<SourceTarget[]>([]);
   const [runs, setRuns] = useState<ImportRun[]>([]);
+  const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]);
   const [resellers, setResellers] = useState<ResellerApplication[]>([]);
   const [events, setEvents] = useState<AdminEventOption[]>([]);
   const [ownedListings, setOwnedListings] = useState<OwnedListing[]>([]);
@@ -230,6 +266,7 @@ export function AdminDashboard({
     try {
       const json = await fetchJson("/api/admin/import-runs");
       setRuns(json.runs || []);
+      setProviderStatuses(json.providerStatuses || []);
       setStatus("Import history refreshed.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
@@ -601,9 +638,40 @@ export function AdminDashboard({
 
       <section className="detail-panel stack">
         <div className="admin-section-head">
-          <h2 className="section-title">Import History</h2>
+          <h2 className="section-title">Sync Status</h2>
           <button className="primary-button" type="button" onClick={refreshRuns}>
             {loadingAction === "history" ? "Loading..." : "Refresh History"}
+          </button>
+        </div>
+        <div className="admin-status-grid">
+          {providerStatuses.map((providerStatus) => (
+            <article className="admin-status-card" key={providerStatus.provider}>
+              <div className="admin-section-head">
+                <h3>{providerLabel(providerStatus.provider)}</h3>
+                <span className={`status-pill status-${providerStatus.last_status || "inactive"}`}>
+                  {providerStatus.last_status || "No runs"}
+                </span>
+              </div>
+              <div className="details">
+                <span>Last success: {formatDate(providerStatus.last_successful_sync)}</span>
+                <span>Last attempt: {formatDate(providerStatus.last_attempted_sync)}</span>
+                <span>Trigger: {providerStatus.last_trigger_type || "-"}</span>
+                <span>Duration: {formatDurationMs(providerStatus.duration_ms)}</span>
+                <span>
+                  F/I/U/S: {providerStatus.fetched_count}/{providerStatus.inserted_count}/{providerStatus.updated_count}/{providerStatus.skipped_count}
+                </span>
+              </div>
+              {providerStatus.last_error ? <p className="muted">Last error: {providerStatus.last_error}</p> : null}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="detail-panel stack">
+        <div className="admin-section-head">
+          <h2 className="section-title">Recent Sync Logs</h2>
+          <button className="primary-button" type="button" onClick={refreshRuns}>
+            {loadingAction === "history" ? "Loading..." : "Refresh Logs"}
           </button>
         </div>
         <div className="admin-table-wrap">
@@ -611,8 +679,8 @@ export function AdminDashboard({
             <thead>
               <tr>
                 <th>Started</th>
-                <th>Source</th>
-                <th>Type</th>
+                <th>Provider</th>
+                <th>Trigger</th>
                 <th>Status</th>
                 <th>Fetched</th>
                 <th>Inserted</th>
@@ -620,21 +688,23 @@ export function AdminDashboard({
                 <th>Skipped</th>
                 <th>Errors</th>
                 <th>Duration</th>
+                <th>Last Error</th>
               </tr>
             </thead>
             <tbody>
               {runs.map((run) => (
                 <tr key={run.id}>
                   <td>{formatDate(run.started_at)}</td>
-                  <td>{run.source_name}</td>
-                  <td>{run.run_type}</td>
+                  <td>{providerLabel(run.provider || run.source_name)}</td>
+                  <td>{run.trigger_type || run.run_type}</td>
                   <td><span className={`status-pill status-${run.status}`}>{run.status}</span></td>
                   <td>{run.fetched_count}</td>
                   <td>{run.inserted_count}</td>
                   <td>{run.updated_count}</td>
                   <td>{run.skipped_count}</td>
                   <td>{run.error_count}</td>
-                  <td>{duration(run.started_at, run.finished_at)}</td>
+                  <td>{run.duration_ms === null || run.duration_ms === undefined ? duration(run.started_at, run.finished_at) : formatDurationMs(run.duration_ms)}</td>
+                  <td>{run.error_message || "-"}</td>
                 </tr>
               ))}
             </tbody>

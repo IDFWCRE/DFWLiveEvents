@@ -171,18 +171,23 @@ create table if not exists source_import_targets (
 create table if not exists source_import_runs (
   id uuid primary key default gen_random_uuid(),
   source_name text not null,
+  provider text,
   run_type text not null,
+  trigger_type text,
   status text not null,
+  success boolean not null default false,
   import_window_start timestamptz,
   import_window_end timestamptz,
   started_at timestamptz not null default now(),
   finished_at timestamptz,
+  duration_ms integer,
   fetched_count integer not null default 0,
   inserted_count integer not null default 0,
   updated_count integer not null default 0,
   skipped_count integer not null default 0,
   error_count integer not null default 0,
   error_message text,
+  errors jsonb not null default '[]'::jsonb,
   summary jsonb,
   triggered_by text,
   created_at timestamptz not null default now()
@@ -260,6 +265,11 @@ alter table events add column if not exists raw_payload jsonb;
 alter table events add column if not exists source_updated_at timestamptz;
 alter table events add column if not exists last_seen_at timestamptz;
 alter table events add column if not exists import_status text not null default 'active';
+alter table source_import_runs add column if not exists provider text;
+alter table source_import_runs add column if not exists trigger_type text;
+alter table source_import_runs add column if not exists duration_ms integer;
+alter table source_import_runs add column if not exists success boolean not null default false;
+alter table source_import_runs add column if not exists errors jsonb not null default '[]'::jsonb;
 
 create index if not exists idx_events_status_date on events(status, event_date, event_time);
 create index if not exists idx_events_category on events(category);
@@ -276,7 +286,10 @@ create index if not exists idx_affiliate_clicks_clicked_at on affiliate_clicks(c
 create index if not exists idx_source_import_targets_active_source on source_import_targets(active, source_name);
 create index if not exists idx_source_import_targets_type on source_import_targets(source_name, target_type);
 create index if not exists idx_source_import_runs_source_name on source_import_runs(source_name);
+create index if not exists idx_source_import_runs_provider on source_import_runs(provider);
+create index if not exists idx_source_import_runs_trigger_type on source_import_runs(trigger_type);
 create index if not exists idx_source_import_runs_status on source_import_runs(status);
+create index if not exists idx_source_import_runs_success on source_import_runs(success);
 create index if not exists idx_source_import_runs_started_at on source_import_runs(started_at desc);
 create index if not exists idx_user_profiles_role on user_profiles(role);
 create index if not exists idx_user_profiles_reseller_status on user_profiles(reseller_status);
