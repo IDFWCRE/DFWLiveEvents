@@ -34,6 +34,12 @@ type ImportRun = {
   error_count: number;
   error_message?: string | null;
   errors?: unknown;
+  diagnostics?: ProviderDiagnostics | null;
+};
+
+type ProviderDiagnostics = {
+  sourceCounts?: Record<string, number> | null;
+  likelyLiveNationPromotedCount?: number;
 };
 
 type ProviderStatus = {
@@ -49,6 +55,7 @@ type ProviderStatus = {
   skipped_count: number;
   error_count: number;
   last_error: string | null;
+  diagnostics?: ProviderDiagnostics | null;
 };
 
 type ResellerApplication = {
@@ -186,6 +193,13 @@ function providerLabel(provider: string) {
   if (provider === "stubhub") return "StubHub";
   if (provider === "all") return "All";
   return provider;
+}
+
+function formatSourceCounts(sourceCounts?: Record<string, number> | null) {
+  if (!sourceCounts) return null;
+  const entries = Object.entries(sourceCounts).filter(([, count]) => count > 0);
+  if (!entries.length) return null;
+  return entries.map(([source, count]) => `${source}: ${count}`).join(", ");
 }
 
 export function AdminDashboard({
@@ -660,6 +674,12 @@ export function AdminDashboard({
                 <span>
                   F/I/U/S: {providerStatus.fetched_count}/{providerStatus.inserted_count}/{providerStatus.updated_count}/{providerStatus.skipped_count}
                 </span>
+                {formatSourceCounts(providerStatus.diagnostics?.sourceCounts) ? (
+                  <span>Sources: {formatSourceCounts(providerStatus.diagnostics?.sourceCounts)}</span>
+                ) : null}
+                {providerStatus.diagnostics?.likelyLiveNationPromotedCount ? (
+                  <span>Likely Live Nation: {providerStatus.diagnostics.likelyLiveNationPromotedCount}</span>
+                ) : null}
               </div>
               {providerStatus.last_error ? <p className="muted">Last error: {providerStatus.last_error}</p> : null}
             </article>
@@ -688,6 +708,7 @@ export function AdminDashboard({
                 <th>Skipped</th>
                 <th>Errors</th>
                 <th>Duration</th>
+                <th>Diagnostics</th>
                 <th>Last Error</th>
               </tr>
             </thead>
@@ -704,6 +725,12 @@ export function AdminDashboard({
                   <td>{run.skipped_count}</td>
                   <td>{run.error_count}</td>
                   <td>{run.duration_ms === null || run.duration_ms === undefined ? duration(run.started_at, run.finished_at) : formatDurationMs(run.duration_ms)}</td>
+                  <td>
+                    {formatSourceCounts(run.diagnostics?.sourceCounts) || "-"}
+                    {run.diagnostics?.likelyLiveNationPromotedCount ? (
+                      <span> · Live Nation: {run.diagnostics.likelyLiveNationPromotedCount}</span>
+                    ) : null}
+                  </td>
                   <td>{run.error_message || "-"}</td>
                 </tr>
               ))}

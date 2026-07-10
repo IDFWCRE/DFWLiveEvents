@@ -42,6 +42,21 @@ function parseCoordinate(value?: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+export function getTicketmasterSourceName(event: TicketmasterEvent) {
+  if (typeof event.source === "string") return event.source.toLowerCase();
+  return event.source?.name?.toLowerCase() || "unknown";
+}
+
+export function getTicketmasterPromoterNames(event: TicketmasterEvent) {
+  return [event.promoter, ...(event.promoters || [])]
+    .map((promoter) => promoter?.name?.trim())
+    .filter((name): name is string => Boolean(name));
+}
+
+export function isLikelyLiveNationPromoted(event: TicketmasterEvent) {
+  return getTicketmasterPromoterNames(event).some((name) => name.toLowerCase().includes("live nation"));
+}
+
 export function normalizeTicketmasterEvent(event: TicketmasterEvent): NormalizedTicketmasterEvent | null {
   const externalEventId = event.id;
   const title = event.name?.trim();
@@ -60,6 +75,7 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): Normalized
   const address = [venue?.address?.line1, venue?.address?.line2].filter(Boolean).join(", ") || `${city}, ${state}`;
   const eventSlug = slugify(`${title}-${city}-${eventDate}-${externalEventId}`);
   const category = taxonomy.categorySlug;
+  const promoterNames = getTicketmasterPromoterNames(event);
 
   return {
     slug: eventSlug,
@@ -77,7 +93,14 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): Normalized
     sourceUrl,
     ticketUrl: sourceUrl,
     sourceUpdatedAt: null,
-    rawPayload: event,
+    rawPayload: {
+      ...event,
+      dfw_live_events: {
+        ticketmaster_source: getTicketmasterSourceName(event),
+        promoter_names: promoterNames,
+        likely_live_nation_promoted: isLikelyLiveNationPromoted(event)
+      }
+    },
     venue: {
       slug: slugify(`${venueName}-${city}`),
       name: venueName,

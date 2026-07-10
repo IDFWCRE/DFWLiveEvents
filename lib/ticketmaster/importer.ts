@@ -2,7 +2,13 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ingestNormalizedProviderEvents } from "@/lib/import/providers";
 import { runWithImportHistory, type ImportRunType } from "@/lib/import/runs";
 import { fetchTicketmasterEvents } from "./client";
-import { normalizeTicketmasterEvent, type NormalizedTicketmasterEvent } from "./normalize";
+import {
+  getTicketmasterPromoterNames,
+  getTicketmasterSourceName,
+  isLikelyLiveNationPromoted,
+  normalizeTicketmasterEvent,
+  type NormalizedTicketmasterEvent
+} from "./normalize";
 
 export type TicketmasterImportSummary = {
   fetchedCount: number;
@@ -10,6 +16,9 @@ export type TicketmasterImportSummary = {
   updatedCount: number;
   skippedCount: number;
   errors: string[];
+  sourceCounts?: Record<string, number>;
+  promoterCounts?: Record<string, number>;
+  likelyLiveNationPromotedCount?: number;
 };
 
 export type TicketmasterImportOptions = {
@@ -179,10 +188,25 @@ function dedupeNormalizedEvents(events: NormalizedTicketmasterEvent[]) {
   return [...new Map(events.map((event) => [event.externalEventId, event])).values()];
 }
 
+function countValues(values: string[]) {
+  return values.reduce<Record<string, number>>((counts, value) => {
+    counts[value] = (counts[value] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function dedupeTicketmasterPayloads(events: Awaited<ReturnType<typeof fetchTicketmasterEvents>>["events"]) {
+  return [...new Map(events.map((event, index) => [event.id || `missing-id-${index}`, event])).values()];
+}
+
 async function importTicketmasterEventsInternal(options: TicketmasterImportOptions = {}): Promise<TicketmasterImportSummary> {
   options.log?.("[ticketmaster] Import started");
   const fetched = await fetchTicketmasterEvents({ log: options.log });
   const errors = [...fetched.errors];
+  const uniqueFetchedEvents = dedupeTicketmasterPayloads(fetched.events);
+  const sourceCounts = countValues(uniqueFetchedEvents.map(getTicketmasterSourceName));
+  const promoterCounts = countValues(uniqueFetchedEvents.flatMap(getTicketmasterPromoterNames));
+  const likelyLiveNationPromotedCount = uniqueFetchedEvents.filter(isLikelyLiveNationPromoted).length;
   const normalized = fetched.events.map(normalizeTicketmasterEvent);
   const skippedCount = normalized.filter((event) => !event).length;
   const normalizedEvents = dedupeNormalizedEvents(
@@ -204,12 +228,18 @@ async function importTicketmasterEventsInternal(options: TicketmasterImportOptio
     errors,
     log: options.log
   });
+  const summaryWithDiagnostics: TicketmasterImportSummary = {
+    ...summary,
+    sourceCounts,
+    promoterCounts,
+    likelyLiveNationPromotedCount
+  };
 
   options.log?.(
-    `[ticketmaster] Import complete: fetched=${summary.fetchedCount}, inserted=${summary.insertedCount}, updated=${summary.updatedCount}, skipped=${summary.skippedCount}, subcategory_mapped=${subcategoryMappedCount}, errors=${summary.errors.length}`
+    `[ticketmaster] Import complete: fetched=${summaryWithDiagnostics.fetchedCount}, inserted=${summaryWithDiagnostics.insertedCount}, updated=${summaryWithDiagnostics.updatedCount}, skipped=${summaryWithDiagnostics.skippedCount}, subcategory_mapped=${subcategoryMappedCount}, likely_live_nation=${likelyLiveNationPromotedCount}, source_counts=${JSON.stringify(sourceCounts)}, errors=${summaryWithDiagnostics.errors.length}`
   );
 
-  return summary;
+  return summaryWithDiagnostics;
 }
 
 export async function importTicketmasterEvents(options: TicketmasterImportOptions = {}): Promise<TicketmasterImportSummary> {

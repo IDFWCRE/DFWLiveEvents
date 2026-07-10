@@ -37,12 +37,31 @@ function errorsForRun(run: ImportRunRow) {
   return run.error_message ? [run.error_message] : [];
 }
 
+function diagnosticsForRun(run: ImportRunRow) {
+  if (!run.summary || typeof run.summary !== "object") return null;
+  const summary = run.summary as {
+    sourceCounts?: Record<string, number>;
+    promoterCounts?: Record<string, number>;
+    likelyLiveNationPromotedCount?: number;
+  };
+  const sourceCounts = summary.sourceCounts || null;
+  const likelyLiveNationPromotedCount = summary.likelyLiveNationPromotedCount;
+
+  if (!sourceCounts && likelyLiveNationPromotedCount === undefined) return null;
+
+  return {
+    sourceCounts,
+    likelyLiveNationPromotedCount: likelyLiveNationPromotedCount || 0
+  };
+}
+
 function buildProviderStatuses(runs: ImportRunRow[]) {
   return visibleProviders.map((provider) => {
     const providerRuns = runs.filter((run) => providerForRun(run) === provider);
     const lastAttempt = providerRuns[0] || null;
     const lastSuccess = providerRuns.find((run) => run.success === true || run.status === "success") || null;
     const errors = lastAttempt ? errorsForRun(lastAttempt) : [];
+    const diagnostics = lastAttempt ? diagnosticsForRun(lastAttempt) : null;
 
     return {
       provider,
@@ -56,7 +75,8 @@ function buildProviderStatuses(runs: ImportRunRow[]) {
       updated_count: lastAttempt?.updated_count || 0,
       skipped_count: lastAttempt?.skipped_count || 0,
       error_count: lastAttempt?.error_count || 0,
-      last_error: errors[0] || null
+      last_error: errors[0] || null,
+      diagnostics
     };
   });
 }
@@ -88,5 +108,8 @@ export async function GET(request: Request) {
   }
 
   const runs = (data || []) as ImportRunRow[];
-  return NextResponse.json({ runs, providerStatuses: buildProviderStatuses(runs) });
+  return NextResponse.json({
+    runs: runs.map((run) => ({ ...run, diagnostics: diagnosticsForRun(run) })),
+    providerStatuses: buildProviderStatuses(runs)
+  });
 }
