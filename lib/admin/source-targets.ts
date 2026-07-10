@@ -1,3 +1,5 @@
+import { extractEventbriteEventId } from "@/lib/eventbrite/client";
+
 const allowedSources = ["ticketmaster", "eventbrite", "stubhub"] as const;
 const allowedTargetTypes = ["city", "organization", "venue", "event"] as const;
 
@@ -58,6 +60,9 @@ export function validateSourceTargetPayload(payload: SourceTargetPayload, partia
 
   if (!partial || payload.target_value !== undefined) {
     if (!targetValue) errors.push("target_value is required.");
+    if (effectiveSource === "eventbrite" && effectiveTargetType === "event" && targetValue && !extractEventbriteEventId(targetValue)) {
+      errors.push("Eventbrite event target must be an event ID or an Eventbrite event URL containing an event ID.");
+    }
   }
 
   if (errors.length) {
@@ -68,7 +73,12 @@ export function validateSourceTargetPayload(payload: SourceTargetPayload, partia
 
   if (!partial || payload.source_name !== undefined) data.source_name = sourceName;
   if (!partial || payload.target_type !== undefined) data.target_type = targetType;
-  if (!partial || payload.target_value !== undefined) data.target_value = targetValue;
+  if (!partial || payload.target_value !== undefined) {
+    data.target_value =
+      effectiveSource === "eventbrite" && effectiveTargetType === "event" && targetValue
+        ? extractEventbriteEventId(targetValue)
+        : targetValue;
+  }
   if (payload.label !== undefined) data.label = optionalString(payload.label);
   if (payload.city !== undefined) data.city = optionalString(payload.city);
   if (payload.category !== undefined) data.category = optionalString(payload.category)?.toLowerCase() || null;

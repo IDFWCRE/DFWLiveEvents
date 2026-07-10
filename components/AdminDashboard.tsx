@@ -296,7 +296,8 @@ export function AdminDashboard({
     try {
       const json = await fetchJson(`/api/admin/import/${kind}`, { method: "POST" });
       setImportResult(json);
-      setStatus(`${kind} import finished.`);
+      const errorCount = Array.isArray(json.errors) ? json.errors.length : Array.isArray(json?.errors) ? json.errors.length : 0;
+      setStatus(errorCount ? `${kind} import finished with ${errorCount} error(s).` : `${kind} import finished.`);
       await refreshRuns();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
@@ -316,8 +317,9 @@ export function AdminDashboard({
         method,
         body: JSON.stringify(form)
       });
+      const wasEventbriteEventTarget = form.source_name === "eventbrite" && form.target_type === "event";
       setForm(emptyForm);
-      setStatus("Source target saved.");
+      setStatus(wasEventbriteEventTarget ? "Eventbrite event target saved. URLs are stored as event IDs." : "Source target saved.");
       await refreshTargets();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
@@ -557,6 +559,10 @@ export function AdminDashboard({
             </button>
           ) : null}
         </form>
+        <p className="muted">
+          Eventbrite event targets accept full event URLs or numeric event IDs. Organization and venue targets only import events that
+          EVENTBRITE_PRIVATE_TOKEN can access or manage.
+        </p>
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>

@@ -94,6 +94,29 @@ function getTargetsByType(targets: SourceImportTarget[] | undefined, targetType:
     .filter(Boolean);
 }
 
+function eventbriteAccessError(status: number, path: string, body: string) {
+  const eventId = path.match(/\/events\/([^/]+)\//)?.[1];
+  const suffix = body ? ` Eventbrite response: ${body.slice(0, 180)}` : "";
+
+  if (status === 401) {
+    return "Eventbrite token was rejected. Check EVENTBRITE_PRIVATE_TOKEN and make sure it is a private token with event access.";
+  }
+
+  if (status === 403 && eventId) {
+    return `EVENTBRITE_PRIVATE_TOKEN cannot access Eventbrite event ${eventId}. The event must belong to an organizer/organization the token can manage or otherwise access.${suffix}`;
+  }
+
+  if (status === 403) {
+    return `EVENTBRITE_PRIVATE_TOKEN cannot access ${path}. Organization and venue imports only work for sources managed or accessible by that token.${suffix}`;
+  }
+
+  if (status === 404 && eventId) {
+    return `Eventbrite event ${eventId} was not found or is not accessible with EVENTBRITE_PRIVATE_TOKEN.${suffix}`;
+  }
+
+  return `Eventbrite request failed ${status} for ${path}: ${body.slice(0, 180)}`;
+}
+
 export function extractEventbriteEventId(value: string) {
   const trimmed = value.trim();
   if (/^\d+$/.test(trimmed)) return trimmed;
@@ -125,7 +148,7 @@ async function eventbriteFetch<T>(path: string, options: EventbriteFetchOptions 
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw new Error(`Eventbrite request failed ${response.status} for ${url.pathname}: ${body.slice(0, 180)}`);
+      throw new Error(eventbriteAccessError(response.status, url.pathname, body));
     }
 
     return (await response.json()) as T;
