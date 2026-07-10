@@ -12,6 +12,8 @@ export type EventbriteEvent = {
   name?: { text?: string; html?: string };
   description?: { text?: string; html?: string };
   url?: string;
+  changed?: string;
+  published?: string;
   start?: { local?: string; timezone?: string; utc?: string };
   logo?: { url?: string; original?: { url?: string } };
   category?: { name?: string; short_name?: string };

@@ -1,36 +1,10 @@
-import { mapImportTaxonomy, type ImportableEventCategorySlug } from "@/lib/import/taxonomy-map";
-import type { EventSubcategorySlug } from "@/lib/taxonomy";
+import type { NormalizedProviderEvent } from "@/lib/import/providers";
+import { mapImportTaxonomy } from "@/lib/import/taxonomy-map";
 import type { TicketmasterEvent } from "./client";
 
-export type NormalizedTicketmasterEvent = {
-  slug: string;
-  title: string;
-  description: string | null;
-  category: "music" | "comedy";
-  categorySlug: ImportableEventCategorySlug;
-  subcategorySlug: EventSubcategorySlug | null;
-  eventDate: string;
-  eventTime: string | null;
-  imageUrl: string | null;
-  externalEventId: string;
-  venue: {
-    slug: string;
-    name: string;
-    city: string;
-    state: string;
-    address: string;
-    latitude: number | null;
-    longitude: number | null;
-  };
-  performers: Array<{
-    slug: string;
-    name: string;
-    category: "music" | "comedy";
-    imageUrl: string | null;
-    websiteUrl: string | null;
-  }>;
+export type NormalizedTicketmasterEvent = NormalizedProviderEvent & {
   sourceName: "Ticketmaster";
-  sourceUrl: string;
+  externalEventId: string;
 };
 
 export function slugify(value: string) {
@@ -98,6 +72,12 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): Normalized
     eventTime: event.dates?.start?.localTime || null,
     imageUrl: bestImage(event.images),
     externalEventId,
+    sourceProvider: "ticketmaster",
+    sourceEventId: externalEventId,
+    sourceUrl,
+    ticketUrl: sourceUrl,
+    sourceUpdatedAt: null,
+    rawPayload: event,
     venue: {
       slug: slugify(`${venueName}-${city}`),
       name: venueName,
@@ -116,7 +96,6 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): Normalized
         imageUrl: bestImage(attraction.images),
         websiteUrl: attraction.url || null
       })),
-    sourceName: "Ticketmaster",
-    sourceUrl
+    sourceName: "Ticketmaster"
   };
 }

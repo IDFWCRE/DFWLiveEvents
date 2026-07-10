@@ -1,5 +1,5 @@
-import { mapImportTaxonomy, type ImportableEventCategorySlug } from "@/lib/import/taxonomy-map";
-import type { EventSubcategorySlug } from "@/lib/taxonomy";
+import type { NormalizedProviderEvent } from "@/lib/import/providers";
+import { mapImportTaxonomy } from "@/lib/import/taxonomy-map";
 import { slugify } from "@/lib/ticketmaster/normalize";
 import type { EventbriteEvent } from "./client";
 
@@ -15,35 +15,9 @@ const allowedCities = new Set([
   "McKinney"
 ]);
 
-export type NormalizedEventbriteEvent = {
-  slug: string;
-  title: string;
-  description: string | null;
-  category: "music" | "comedy";
-  categorySlug: ImportableEventCategorySlug;
-  subcategorySlug: EventSubcategorySlug | null;
-  eventDate: string;
-  eventTime: string | null;
-  imageUrl: string | null;
-  externalEventId: string;
-  venue: {
-    slug: string;
-    name: string;
-    city: string;
-    state: string;
-    address: string;
-    latitude: number | null;
-    longitude: number | null;
-  };
-  performers: Array<{
-    slug: string;
-    name: string;
-    category: "music" | "comedy";
-    imageUrl: string | null;
-    websiteUrl: string | null;
-  }>;
+export type NormalizedEventbriteEvent = NormalizedProviderEvent & {
   sourceName: "Eventbrite";
-  sourceUrl: string;
+  externalEventId: string;
 };
 
 export type EventbriteNormalizeResult =
@@ -110,6 +84,12 @@ export function normalizeEventbriteEvent(event: EventbriteEvent): EventbriteNorm
       eventTime,
       imageUrl: event.logo?.original?.url || event.logo?.url || null,
       externalEventId,
+      sourceProvider: "eventbrite",
+      sourceEventId: externalEventId,
+      sourceUrl,
+      ticketUrl: sourceUrl,
+      sourceUpdatedAt: event.changed || event.published || null,
+      rawPayload: event,
       venue: {
         slug: slugify(`${venue.name}-${city}`),
         name: venue.name,
@@ -128,8 +108,7 @@ export function normalizeEventbriteEvent(event: EventbriteEvent): EventbriteNorm
           websiteUrl: event.organizer?.url || null
         }
       ],
-      sourceName: "Eventbrite",
-      sourceUrl
+      sourceName: "Eventbrite"
     }
   };
 }

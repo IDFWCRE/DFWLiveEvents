@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/import-events",
+      "path": "/api/cron/sync-events",
       "schedule": "0 9 * * *"
     }
   ]

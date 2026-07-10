@@ -44,6 +44,9 @@ type EventRow = {
   event_date: string;
   event_time: string | null;
   image_url: string | null;
+  source_provider?: string | null;
+  source_url?: string | null;
+  ticket_url?: string | null;
   status: "draft" | "published" | "cancelled";
   venues: VenueRow | VenueRow[] | null;
   event_offers?: EventOfferRow[] | null;
@@ -137,9 +140,11 @@ function mapEvent(row: EventRow): Event | null {
     categorySlug: category.categorySlug,
     ...subcategory,
     description: row.description || "",
-    ticketUrl: ticketOffer?.affiliate_url || ticketOffer?.source_listing_url || "#",
+    ticketUrl: ticketOffer?.affiliate_url || ticketOffer?.source_listing_url || row.ticket_url || "#",
     offerId: ticketOffer?.id,
     ticketSourceName: ticketOffer?.source_name || undefined,
+    sourceProvider: row.source_provider || ticketOffer?.source_name || undefined,
+    sourceUrl: row.source_url || undefined,
     hasOwnedTickets: Boolean(row.owned_ticket_listings?.length),
     status: row.status
   };
@@ -156,6 +161,9 @@ const eventSelect = `
   event_date,
   event_time,
   image_url,
+  source_provider,
+  source_url,
+  ticket_url,
   status,
   venues (
     id,
@@ -212,7 +220,13 @@ const legacyEventSelect = `
 `;
 
 function shouldRetryWithLegacyEventSelect(message: string) {
-  return message.includes("category_slug") || message.includes("subcategory_slug");
+  return (
+    message.includes("category_slug") ||
+    message.includes("subcategory_slug") ||
+    message.includes("source_provider") ||
+    message.includes("source_url") ||
+    message.includes("ticket_url")
+  );
 }
 
 export async function getUpcomingEvents(): Promise<QueryResult<Event[]>> {

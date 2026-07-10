@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminTokenOrRoleAuthorized, unauthorizedJson } from "@/lib/admin/auth";
-import { importAllSources } from "@/lib/import/all";
+import { importStubHubEvents } from "@/lib/stubhub/importer";
 
 export async function POST(request: Request) {
   if (!(await isAdminTokenOrRoleAuthorized(request))) {
@@ -8,18 +8,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const summary = await importAllSources({ runType: "manual_api", triggeredBy: "admin_api" });
+    const summary = await importStubHubEvents({ runType: "manual_api", triggeredBy: "admin_api" });
     return NextResponse.json(summary);
   } catch (error) {
     return NextResponse.json(
       {
-        ticketmaster: null,
-        eventbrite: null,
-        stubhub: null,
-        totalFetched: 0,
-        totalInserted: 0,
-        totalUpdated: 0,
-        totalSkipped: 0,
+        fetchedCount: 0,
+        insertedCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
         errors: [error instanceof Error ? error.message : String(error)]
       },
       { status: 500 }

@@ -1,4 +1,4 @@
-const allowedSources = ["ticketmaster", "eventbrite"] as const;
+const allowedSources = ["ticketmaster", "eventbrite", "stubhub"] as const;
 const allowedTargetTypes = ["city", "organization", "venue", "event"] as const;
 
 export type SourceTargetPayload = {
@@ -30,7 +30,7 @@ export function validateSourceTargetPayload(payload: SourceTargetPayload, partia
 
   if (!partial || payload.source_name !== undefined) {
     if (!allowedSources.includes(sourceName as (typeof allowedSources)[number])) {
-      errors.push("source_name must be ticketmaster or eventbrite.");
+        errors.push("source_name must be ticketmaster, eventbrite, or stubhub.");
     }
   }
 
@@ -51,6 +51,9 @@ export function validateSourceTargetPayload(payload: SourceTargetPayload, partia
     !["organization", "venue", "event"].includes(effectiveTargetType)
   ) {
     errors.push("Eventbrite targets support target_type=organization, venue, or event.");
+  }
+  if (effectiveSource === "stubhub" && effectiveTargetType && !["city", "venue", "event"].includes(effectiveTargetType)) {
+    errors.push("StubHub targets support target_type=city, venue, or event.");
   }
 
   if (!partial || payload.target_value !== undefined) {

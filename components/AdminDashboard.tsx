@@ -80,7 +80,7 @@ type OwnedRequest = {
 
 type TargetForm = {
   id?: string;
-  source_name: "ticketmaster" | "eventbrite";
+  source_name: "ticketmaster" | "eventbrite" | "stubhub";
   target_type: "city" | "organization" | "venue" | "event";
   target_value: string;
   label: string;
@@ -289,7 +289,7 @@ export function AdminDashboard({
     }
   }
 
-  async function runImport(kind: "ticketmaster" | "eventbrite" | "all") {
+  async function runImport(kind: "ticketmaster" | "eventbrite" | "stubhub" | "all") {
     if (!hasAdminAccess) return setStatus("Admin session or admin token required before running imports.");
     setLoadingAction(kind);
     setImportResult(null);
@@ -502,6 +502,9 @@ export function AdminDashboard({
           <button className="primary-button" disabled={Boolean(loadingAction)} onClick={() => runImport("eventbrite")}>
             {loadingAction === "eventbrite" ? "Running..." : "Run Eventbrite Import"}
           </button>
+          <button className="primary-button" disabled={Boolean(loadingAction)} onClick={() => runImport("stubhub")}>
+            {loadingAction === "stubhub" ? "Running..." : "Run StubHub Import"}
+          </button>
           <button className="primary-button" disabled={Boolean(loadingAction)} onClick={() => runImport("all")}>
             {loadingAction === "all" ? "Running..." : "Run All Imports"}
           </button>
@@ -524,6 +527,7 @@ export function AdminDashboard({
           >
             <option value="eventbrite">Eventbrite</option>
             <option value="ticketmaster">Ticketmaster</option>
+            <option value="stubhub">StubHub</option>
           </select>
           <select
             className="admin-input"

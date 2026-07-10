@@ -8,6 +8,14 @@ interface EventCardProps {
   isLoggedIn?: boolean;
 }
 
+function sourceLabel(source?: string) {
+  if (!source) return null;
+  if (source.toLowerCase() === "ticketmaster") return "Ticketmaster";
+  if (source.toLowerCase() === "eventbrite") return "Eventbrite";
+  if (source.toLowerCase() === "stubhub") return "StubHub";
+  return source;
+}
+
 export function EventCard({ event, isLoggedIn = false }: EventCardProps) {
   const goHref = event.offerId ? `/go/${event.offerId}` : event.ticketUrl;
   const ticketHref = isLoggedIn ? goHref : `/login?next=${encodeURIComponent(goHref)}`;
@@ -17,6 +25,7 @@ export function EventCard({ event, isLoggedIn = false }: EventCardProps) {
     month: "short",
     timeZone: "America/Chicago"
   }).format(date);
+  const providerLabel = sourceLabel(event.sourceProvider);
   const day = new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     timeZone: "America/Chicago"
@@ -35,6 +44,7 @@ export function EventCard({ event, isLoggedIn = false }: EventCardProps) {
         <div className="event-meta">
           <span className="pill">{event.category}</span>
           <span className="pill">{event.city}</span>
+          {providerLabel ? <span className="pill">{providerLabel}</span> : null}
           {event.hasOwnedTickets ? <span className="pill">DFW Tickets Available</span> : null}
         </div>
         <h3 className="event-title">

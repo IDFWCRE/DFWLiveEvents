@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { ingestNormalizedProviderEvents } from "@/lib/import/providers";
 import { runWithImportHistory, type ImportRunType } from "@/lib/import/runs";
 import { fetchTicketmasterEvents } from "./client";
 import { normalizeTicketmasterEvent, type NormalizedTicketmasterEvent } from "./normalize";
@@ -191,49 +192,18 @@ async function importTicketmasterEventsInternal(options: TicketmasterImportOptio
   const supabase = createSupabaseAdminClient();
 
   await ensureTicketmasterSource(supabase);
-
-  const existingIds = await getExistingTicketmasterIds(
-    supabase,
-    normalizedEvents.map((event) => event.externalEventId)
-  );
-
-  let insertedCount = 0;
-  let updatedCount = 0;
   const subcategoryMappedCount = normalizedEvents.filter((event) => event.subcategorySlug).length;
 
   options.log?.(
     `[ticketmaster] Upserting ${normalizedEvents.length} normalized event(s); subcategory_mapped=${subcategoryMappedCount}`
   );
 
-  for (const event of normalizedEvents) {
-    try {
-      options.log?.(`[ticketmaster] Upserting event: ${event.title}`);
-      const wasExisting = existingIds.has(event.externalEventId);
-      const venueId = await upsertVenue(supabase, event);
-      const performerIds = await upsertPerformers(supabase, event);
-      const eventId = await upsertEvent(supabase, event, venueId);
-      await upsertEventPerformers(supabase, eventId, performerIds);
-      await upsertTicketmasterOffer(supabase, eventId, event);
-
-      if (wasExisting) {
-        updatedCount += 1;
-      } else {
-        insertedCount += 1;
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      errors.push(message);
-      options.log?.(`[ticketmaster] Upsert error for "${event.title}": ${message}`);
-    }
-  }
-
-  const summary = {
+  const summary = await ingestNormalizedProviderEvents("ticketmaster", normalizedEvents, {
     fetchedCount: fetched.fetchedCount,
-    insertedCount,
-    updatedCount,
     skippedCount,
-    errors
-  };
+    errors,
+    log: options.log
+  });
 
   options.log?.(
     `[ticketmaster] Import complete: fetched=${summary.fetchedCount}, inserted=${summary.insertedCount}, updated=${summary.updatedCount}, skipped=${summary.skippedCount}, subcategory_mapped=${subcategoryMappedCount}, errors=${summary.errors.length}`

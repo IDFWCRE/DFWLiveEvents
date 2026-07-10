@@ -1,4 +1,5 @@
 import { importEventbriteEvents, type EventbriteImportSummary } from "@/lib/eventbrite/importer";
+import { importStubHubEvents, type StubHubImportSummary } from "@/lib/stubhub/importer";
 import { importTicketmasterEvents, type TicketmasterImportSummary } from "@/lib/ticketmaster/importer";
 import { runWithImportHistory, type ImportRunType, type ImportSummaryCounts } from "@/lib/import/runs";
 
@@ -21,6 +22,7 @@ function emptySummary(message: string): ImportSummaryCounts {
 export type CombinedImportSummary = {
   ticketmaster: TicketmasterImportSummary | ImportSummaryCounts;
   eventbrite: EventbriteImportSummary | ImportSummaryCounts;
+  stubhub: StubHubImportSummary | ImportSummaryCounts;
   totalFetched: number;
   totalInserted: number;
   totalUpdated: number;
@@ -49,15 +51,26 @@ async function runCombinedImport(options: CombinedImportOptions = {}): Promise<C
     return emptySummary(`Eventbrite: ${message}`);
   });
 
-  const errors = [...ticketmaster.errors, ...eventbrite.errors];
+  const stubhub = await importStubHubEvents({
+    log: options.log,
+    runType: options.runType,
+    triggeredBy: options.triggeredBy
+  }).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    options.log?.(`[import:all] StubHub failed: ${message}`);
+    return emptySummary(`StubHub: ${message}`);
+  });
+
+  const errors = [...ticketmaster.errors, ...eventbrite.errors, ...stubhub.errors];
 
   return {
     ticketmaster,
     eventbrite,
-    totalFetched: ticketmaster.fetchedCount + eventbrite.fetchedCount,
-    totalInserted: ticketmaster.insertedCount + eventbrite.insertedCount,
-    totalUpdated: ticketmaster.updatedCount + eventbrite.updatedCount,
-    totalSkipped: ticketmaster.skippedCount + eventbrite.skippedCount,
+    stubhub,
+    totalFetched: ticketmaster.fetchedCount + eventbrite.fetchedCount + stubhub.fetchedCount,
+    totalInserted: ticketmaster.insertedCount + eventbrite.insertedCount + stubhub.insertedCount,
+    totalUpdated: ticketmaster.updatedCount + eventbrite.updatedCount + stubhub.updatedCount,
+    totalSkipped: ticketmaster.skippedCount + eventbrite.skippedCount + stubhub.skippedCount,
     errors
   };
 }

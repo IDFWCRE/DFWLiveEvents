@@ -25,6 +25,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const ticketHref = isLoggedIn ? goHref : `/login?next=${encodeURIComponent(goHref)}`;
   const opensInNewTab = isExternalTicketOffer(event.ticketSourceName);
   const { data: ownedListings } = await getActiveOwnedTicketListingsByEvent(event.id);
+  const providerLabel =
+    event.sourceProvider?.toLowerCase() === "ticketmaster"
+      ? "Ticketmaster"
+      : event.sourceProvider?.toLowerCase() === "eventbrite"
+        ? "Eventbrite"
+        : event.sourceProvider?.toLowerCase() === "stubhub"
+          ? "StubHub"
+          : event.sourceProvider;
 
   return (
     <article className="detail-layout">
@@ -38,6 +46,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       </div>
       <aside className="detail-panel stack">
         <span className="pill">{event.city}</span>
+        {providerLabel ? <span className="pill">{providerLabel}</span> : null}
         <h2 className="section-title">Event Details</h2>
         <p>
           <strong>Date:</strong>

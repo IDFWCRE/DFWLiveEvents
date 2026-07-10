@@ -72,9 +72,32 @@ create table if not exists events (
   source_type event_source_type not null default 'manual',
   external_source text,
   external_event_id text,
+  source_provider text,
+  source_event_id text,
+  source_url text,
+  ticket_url text,
+  raw_payload jsonb,
+  source_updated_at timestamptz,
+  last_seen_at timestamptz,
+  import_status text not null default 'active',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint unique_external_event unique (external_source, external_event_id)
+);
+
+create table if not exists event_source_links (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events(id) on delete cascade,
+  source_provider text not null,
+  source_event_id text not null,
+  source_url text,
+  ticket_url text,
+  raw_payload jsonb,
+  source_updated_at timestamptz,
+  last_seen_at timestamptz not null default now(),
+  import_status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists event_performers (
@@ -229,12 +252,26 @@ create table if not exists owned_ticket_requests (
 
 alter table affiliate_clicks add column if not exists user_id uuid references auth.users(id) on delete set null;
 alter table affiliate_clicks add column if not exists user_email text;
+alter table events add column if not exists source_provider text;
+alter table events add column if not exists source_event_id text;
+alter table events add column if not exists source_url text;
+alter table events add column if not exists ticket_url text;
+alter table events add column if not exists raw_payload jsonb;
+alter table events add column if not exists source_updated_at timestamptz;
+alter table events add column if not exists last_seen_at timestamptz;
+alter table events add column if not exists import_status text not null default 'active';
 
 create index if not exists idx_events_status_date on events(status, event_date, event_time);
 create index if not exists idx_events_category on events(category);
 create index if not exists idx_events_venue_id on events(venue_id);
+create index if not exists idx_events_source_provider on events(source_provider);
+create index if not exists idx_events_last_seen_at on events(last_seen_at desc);
+create index if not exists idx_events_import_status on events(import_status);
 create index if not exists idx_venues_city on venues(city);
 create index if not exists idx_event_offers_event_available on event_offers(event_id, available);
+create index if not exists idx_event_source_links_event_id on event_source_links(event_id);
+create index if not exists idx_event_source_links_last_seen_at on event_source_links(last_seen_at desc);
+create index if not exists idx_event_source_links_import_status on event_source_links(import_status);
 create index if not exists idx_affiliate_clicks_clicked_at on affiliate_clicks(clicked_at);
 create index if not exists idx_source_import_targets_active_source on source_import_targets(active, source_name);
 create index if not exists idx_source_import_targets_type on source_import_targets(source_name, target_type);
@@ -266,6 +303,13 @@ begin
     on public.events (external_source, external_event_id);
   end if;
 end $$;
+
+create unique index if not exists unique_events_source_provider_event_id
+on public.events (source_provider, source_event_id)
+where source_provider is not null and source_event_id is not null;
+
+create unique index if not exists unique_event_source_link_provider_event
+on public.event_source_links (source_provider, source_event_id);
 
 do $$
 begin

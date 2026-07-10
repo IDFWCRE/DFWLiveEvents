@@ -41,6 +41,8 @@ export interface Event {
   ticketUrl: string;
   offerId?: string;
   ticketSourceName?: string;
+  sourceProvider?: string;
+  sourceUrl?: string;
   hasOwnedTickets?: boolean;
   status: "draft" | "published" | "cancelled";
 }
